@@ -1,0 +1,295 @@
+openapi: 3.0.2
+info:
+  title: RAS/RM Party Service
+  description: A service for dealing with various parties (businesses, survey respondents etc and their enrolments)
+  version: "1.0"
+
+servers:
+  - url: https://localhost:8081/party-api/v1
+    description: The default path for Party in ras-rm-docker-dev
+
+tags:
+  - name: info
+    description: Informational endpoints
+  - name: respondents
+    description: Endpoints for interacting with survey respondents
+
+paths:
+  /info:
+    get:
+      summary: Returns basic information about the service.
+      description: Returns service information. If the `REPORT_DEPENDENCIES` environment variable is set to true, it will also report information on service dependencies.
+      tags:
+        - info
+      servers:
+        - url: https://localhost:8081
+          description: The /info path doesn't use the /party-api/v1 prefix
+      responses:
+        '200':
+          description: A JSON of basic information about the service.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    example: ras-rm-party
+                  version:
+                    type: string
+                    example: "1.12.0"
+                  dependencies:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          example: ras-party-db
+  /respondents/email:
+    put:
+      summary: Changes a respondent's email address.
+      description: Will update the respondent's email in the ras-party database and send a new verification email to the respondent. Functionally identical to `PUT /respondents/change_email`
+      tags:
+        - respondents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email_address:
+                  type: string
+                  format: email
+                  example: old@email.com
+                new_email_address:
+                  type: string
+                  format: email
+                  example: new@email.com
+      responses:
+        '200':
+          description: The email is changed and a JSON representing the respondent is returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  emailAddress:
+                    type: string
+                    format: email
+                    example: new@email.com
+                  firstName:
+                    type: string
+                    example: Jenny
+                  id:
+                    type: string
+                    format: uuid
+                    example: b8a336a2-3d15-11ea-b77f-2e728ce88125
+                  lastName:
+                    type: string
+                    example: Testerson
+                  sampleUnitType:
+                    type: string
+                    example: BI
+                  status:
+                    type: string
+                    example: ACTIVE
+                  telephone:
+                    type: string
+                    example: "01234567890"
+        '400':
+          description: The provided request body was missing one of the required parameters.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: A respondent couldn't be found for the email address provided in `email_address`.
+        '409':
+          description: The email address provided in `new_email_address` is already in use for a different respondent.
+  /respondents/change_email:
+    put:
+      summary: Changes a respondent's email address.
+      description: Will update the respondent's email in the ras-party database and send a new verification email to the respondent. Functionally identical to `PUT /respondents/email`
+      tags:
+        - respondents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email_address:
+                  type: string
+                  format: email
+                  example: old@email.com
+                new_email_address:
+                  type: string
+                  format: email
+                  example: new@email.com
+      responses:
+        '200':
+          description: The email is changed and a JSON representing the respondent is returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  emailAddress:
+                    type: string
+                    format: email
+                    example: new@email.com
+                  firstName:
+                    type: string
+                    example: Jenny
+                  id:
+                    type: string
+                    format: uuid
+                    example: b8a336a2-3d15-11ea-b77f-2e728ce88125
+                  lastName:
+                    type: string
+                    example: Testerson
+                  sampleUnitType:
+                    type: string
+                    example: BI
+                  status:
+                    type: string
+                    example: ACTIVE
+                  telephone:
+                    type: string
+                    example: "01234567890"
+        '400':
+          description: The provided request body was missing one of the required parameters.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: A respondent couldn't be found for the email address provided in `email_address`.
+        '409':
+          description: The email address provided in `new_email_address` is already in use for a different respondent.
+  /respondents/change_password:
+    put:
+      summary: Changes a respondent's password.
+      description: Will update the respondent's password in the auth database and send them a confirmation email. It will also set the respondent's account to ACTIVE and their enrolments to ENABLED.
+      tags:
+        - respondents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email_address:
+                  type: string
+                  format: email
+                  example: hello@email.com
+                new_password:
+                  type: string
+                  example: 6yNv!?DQs2/RuW45
+      responses:
+        '200':
+          description: The password was successfully changed and the respondent's statuses updated.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/RespondentNotFoundError'
+        '500':
+          description: There was a problem communicating with the auth service.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  description:
+                    type: string
+                    example: Failed to change respondent password
+  /respondents/request_password_change:
+    post:
+      summary: Requests a password change link to be sent to a respondent's email.
+      description: Generates a token and puts that into the correct GOV.UK Notifications Service template to be sent to the respondent. This functionality is now in the services that consume these tokens (Frontstage / Response Operations).
+      tags:
+        - respondents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email_address:
+                  type: string
+                  format: email
+                  example: goodbye@email.com
+      deprecated: true
+      responses:
+        '200':
+          description: The password change link has been sent to the notification service.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/RespondentNotFoundError'
+  /tokens/verify/{token}:
+    get:
+      summary: Verifies that the token provided is known and valid.
+      description: Checks that the token provided is valid, not expired and relates to a known respondent. This functionality is now in the services that consume these tokens (Frontstage / Response Operations).
+      tags:
+        - respondents
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema:
+            type: string
+      deprecated: true
+      responses:
+        '200':
+          description: The token is valid.
+        '400':
+          description: Either the token can't be decoded or the respondent that has been decoded from the token isn't recognised.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  description:
+                    type: string
+                    example: Unknown email verification token
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/RespondentNotFoundError'
+        '409':
+          description: The token has expired.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  description:
+                    type: string
+                    example: Expired email verification token
+components:
+  responses:
+    RespondentNotFoundError:
+      description: The respondent specified wasn't found.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              description:
+                type: string
+                example: Respondent does not exist
+    UnauthorizedError:
+      description: Authentication information is missing or invalid.
+      headers:
+        WWW_Authenticate:
+          schema:
+            type: string
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+
+security:
+  - basicAuth: []
