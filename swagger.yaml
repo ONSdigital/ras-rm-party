@@ -1,0 +1,10 @@
+openapi: "3.0.2"
+info:
+  title: RAS/RM Party Service
+  description: A service for dealing with various parties (businesses, survey respondents etc and their enrolments)
+  version: 1.0
+
+servers:
+  - url: https://localhost:8081
+    description: The default path for Party in ras-rm-docker-dev
+
