@@ -5,12 +5,14 @@ info:
   version: "1.0"
 
 servers:
-  - url: https://localhost:8081
+  - url: https://localhost:8081/party-api/v1
     description: The default path for Party in ras-rm-docker-dev
 
 tags:
   - name: info
     description: Informational endpoints
+  - name: respondents
+    description: Endpoints for interacting with survey respondents
 
 paths:
   /info:
@@ -19,6 +21,9 @@ paths:
       description: Returns service information. If the `REPORT_DEPENDENCIES` environment variable is set to true, it will also report information on service dependencies.
       tags:
         - info
+      servers:
+        - url: https://localhost:8081
+          description: The /info path doesn't use the /party-api/v1 prefix
       responses:
         '200':
           description: A JSON of basic information about the service.
@@ -40,4 +45,140 @@ paths:
                       properties:
                         name:
                           type: string
-                          example: "ras-party-db"
+                          example: ras-party-db
+  /respondents/email:
+    put:
+      summary: Changes a respondent's email address.
+      description: Will update the respondent's email in the ras-party database and send a new verification email to the respondent. Functionally identical to `PUT /respondents/change_email`
+      tags:
+        - respondents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email_address:
+                  type: string
+                  format: email
+                  example: old@email.com
+                new_email_address:
+                  type: string
+                  format: email
+                  example: new@email.com
+      responses:
+        '200':
+          description: The email is changed and a JSON representing the respondent is returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  emailAddress:
+                    type: string
+                    format: email
+                    example: new@email.com
+                  firstName:
+                    type: string
+                    example: Jenny
+                  id:
+                    type: string
+                    format: uuid
+                    example: b8a336a2-3d15-11ea-b77f-2e728ce88125
+                  lastName:
+                    type: string
+                    example: Testerson
+                  sampleUnitType:
+                    type: string
+                    example: BI
+                  status:
+                    type: string
+                    example: ACTIVE
+                  telephone:
+                    type: string
+                    example: "01234567890"
+        '400':
+          description: The provided request body was missing one of the required parameters.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: A respondent couldn't be found for the email address provided in `email_address`.
+        '409':
+          description: The email address provided in `new_email_address` is already in use for a different respondent.
+  /respondents/change_email:
+    put:
+      summary: Changes a respondent's email address.
+      description: Will update the respondent's email in the ras-party database and send a new verification email to the respondent. Functionally identical to `PUT /respondents/email`
+      tags:
+        - respondents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email_address:
+                  type: string
+                  format: email
+                  example: old@email.com
+                new_email_address:
+                  type: string
+                  format: email
+                  example: new@email.com
+      responses:
+        '200':
+          description: The email is changed and a JSON representing the respondent is returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  emailAddress:
+                    type: string
+                    format: email
+                    example: new@email.com
+                  firstName:
+                    type: string
+                    example: Jenny
+                  id:
+                    type: string
+                    format: uuid
+                    example: b8a336a2-3d15-11ea-b77f-2e728ce88125
+                  lastName:
+                    type: string
+                    example: Testerson
+                  sampleUnitType:
+                    type: string
+                    example: BI
+                  status:
+                    type: string
+                    example: ACTIVE
+                  telephone:
+                    type: string
+                    example: "01234567890"
+        '400':
+          description: The provided request body was missing one of the required parameters.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: A respondent couldn't be found for the email address provided in `email_address`.
+        '409':
+          description: The email address provided in `new_email_address` is already in use for a different respondent.
+
+components:
+  responses:
+    UnauthorizedError:
+      description: Authentication information is missing or invalid.
+      headers:
+        WWW_Authenticate:
+          schema:
+            type: string
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+
+security:
+  - basicAuth: []
