@@ -166,7 +166,42 @@ paths:
           description: A respondent couldn't be found for the email address provided in `email_address`.
         '409':
           description: The email address provided in `new_email_address` is already in use for a different respondent.
-
+  /tokens/verify/{token}:
+    get:
+      summary: Verifies that the token provided is known and valid.
+      description: Checks that the token provided is valid, not expired and relates to a known respondent. This functionality is now in the services that consume these tokens (Frontstage / Response Operations).
+      tags:
+        - respondents
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema:
+            type: string
+      deprecated: true
+      responses:
+        '200':
+          description: The token is valid.
+        '400':
+          description: Either the token can't be decoded or the respondent that has been decoded from the token isn't recognised.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  description:
+                    type: string
+                    example: Unknown email verification token
+        '409':
+          description: The token has expired.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  description:
+                    type: string
+                    example: Expired email verification token
 components:
   responses:
     UnauthorizedError:
