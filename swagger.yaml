@@ -166,6 +166,43 @@ paths:
           description: A respondent couldn't be found for the email address provided in `email_address`.
         '409':
           description: The email address provided in `new_email_address` is already in use for a different respondent.
+  /respondents/change_password:
+    put:
+      summary: Changes a respondent's password.
+      description: Will update the respondent's password in the auth database and send them a confirmation email. It will also set the respondent's account to ACTIVE and their enrolments to ENABLED.
+      tags:
+        - respondents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email_address:
+                  type: string
+                  format: email
+                  example: hello@email.com
+                new_password:
+                  type: string
+                  example: 6yNv!?DQs2/RuW45
+      responses:
+        '200':
+          description: The password was successfully changed and the respondent's statuses updated.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/RespondentNotFoundError'
+        '500':
+          description: There was a problem communicating with the auth service.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  description:
+                    type: string
+                    example: Failed to change respondent password
   /tokens/verify/{token}:
     get:
       summary: Verifies that the token provided is known and valid.
@@ -192,6 +229,10 @@ paths:
                   description:
                     type: string
                     example: Unknown email verification token
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/RespondentNotFoundError'
         '409':
           description: The token has expired.
           content:
@@ -204,6 +245,16 @@ paths:
                     example: Expired email verification token
 components:
   responses:
+    RespondentNotFoundError:
+      description: The respondent specified wasn't found.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              description:
+                type: string
+                example: Respondent does not exist
     UnauthorizedError:
       description: Authentication information is missing or invalid.
       headers:
