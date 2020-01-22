@@ -203,6 +203,31 @@ paths:
                   description:
                     type: string
                     example: Failed to change respondent password
+  /respondents/request_password_change:
+    post:
+      summary: Requests a password change link to be sent to a respondent's email.
+      description: Generates a token and puts that into the correct GOV.UK Notifications Service template to be sent to the respondent. This functionality is now in the services that consume these tokens (Frontstage / Response Operations).
+      tags:
+        - respondents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email_address:
+                  type: string
+                  format: email
+                  example: goodbye@email.com
+      deprecated: true
+      responses:
+        '200':
+          description: The password change link has been sent to the notification service.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/RespondentNotFoundError'
   /tokens/verify/{token}:
     get:
       summary: Verifies that the token provided is known and valid.
