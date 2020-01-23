@@ -46,6 +46,27 @@ paths:
                         name:
                           type: string
                           example: ras-party-db
+  /emailverification/{token}:
+    put:
+      summary: Verifies a respondent's email.
+      description: Checks the token is valid and in-date and then sets the respondent's account to ACTIVE.
+      tags:
+        - respondents
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The token was valid and the respondent's account is now active.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/BadTokenError'
+        '409':
+          $ref: '#/components/responses/ExpiredTokenError'
   /respondents:
     post:
       summary: Creates a new respondent as well as any enrolments.
@@ -245,30 +266,12 @@ paths:
       responses:
         '200':
           description: The token is valid.
-        '400':
-          description: Either the token can't be decoded or the respondent that has been decoded from the token isn't recognised.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  description:
-                    type: string
-                    example: Unknown email verification token
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '404':
-          $ref: '#/components/responses/RespondentNotFoundError'
+          $ref: '#/components/responses/BadTokenError'
         '409':
-          description: The token has expired.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  description:
-                    type: string
-                    example: Expired email verification token
+          $ref: '#/components/responses/ExpiredTokenError'
 components:
   responses:
     RespondentNotFoundError:
@@ -287,6 +290,26 @@ components:
         WWW_Authenticate:
           schema:
             type: string
+    BadTokenError:
+      description: Either the token can't be decoded or the respondent that has been decoded from the token isn't recognised.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              description:
+                type: string
+                example: Unknown email verification token
+    ExpiredTokenError:
+      description: The token has expired.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              description:
+                type: string
+                example: Expired email verification token
   schemas:
     RespondentDetails:
       type: object
