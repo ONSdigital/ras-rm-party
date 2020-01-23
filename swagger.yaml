@@ -178,7 +178,7 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         '500':
           $ref: '#/components/responses/BusinessAssociationError'
-  /respondents/add-survey:
+  /respondents/add_survey:
     post:
       summary: Adds an existing respondent to a survey.
       description: Adds a respondent to a survey using their Party ID and an Enrolment Code.
@@ -279,7 +279,7 @@ paths:
           description: A respondent couldn't be found for the email address provided in `email_address`.
         '409':
           description: The email address provided in `new_email_address` is already in use for a different respondent.
-  /respondents/change-enrolment-status:
+  /respondents/change_enrolment_status:
     put:
       summary: Changes a respondent's enrolment status on a survey.
       description: Will set a respondent's enrolment status on the specified survey to the value of `change_flag` (usually `ENABLED` or `DISABLED`).
@@ -311,7 +311,7 @@ paths:
         '200':
           description: The respondent's enrolment status was successfully changed.
         '400':
-          description: One or more of the fields was missing.
+          $ref: '#/components/responses/FieldMissingError'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '404':
@@ -353,6 +353,42 @@ paths:
                   description:
                     type: string
                     example: Failed to change respondent password
+  /respondents/disable-user-enrolments:
+    patch:
+      summary: Disables all a respondent's enrolments.
+      description: Will disable all the enrolments a respondent has.
+      tags:
+        - respondents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: ex_employee@email.com
+      responses:
+        '200':
+          description: All the respondent's enrolments have been successfully disabled.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: 3 enrolments removed
+        '400':
+          $ref: '#/components/responses/FieldMissingError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/RespondentNotFoundError'
+        '422':
+          description: Multiple respondents were found for the provided email address.
   /respondents/request_password_change:
     post:
       summary: Requests a password change link to be sent to a respondent's email.
@@ -440,6 +476,8 @@ components:
                 example: Expired email verification token
     BusinessAssociationError:
       description: The business the enrolment is for couldn't be found or couldn't be correctly associated with.
+    FieldMissingError:
+      description: One or more of the fields was missing.
     EmailSent:
       description: The email has been sent to the notification service.
   schemas:
