@@ -46,6 +46,55 @@ paths:
                         name:
                           type: string
                           example: ras-party-db
+  /respondents:
+    post:
+      summary: Creates a new respondent as well as any enrolments.
+      description: Will put a new respondent and their enrolments in the database. If an `ID` field is provided, it will use this rather than generating a new UUID.
+      tags:
+        - respondents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                emailAddress:
+                  type: string
+                  format: email
+                  example: new.employee@email.com
+                firstName:
+                  type: string
+                  example: Johnny
+                lastName:
+                  type: string
+                  example: Testerman
+                password:
+                  type: string
+                  example: TAM*$4[7q>dh?s)&
+                telephone:
+                  type: string
+                  example: 01234567890
+                enrolmentCode:
+                  type: string
+                  example: g023at6a
+                ID:
+                  type: string
+                  format: uuid
+                  example: 2bc5fd04-8f9e-4ec0-bddf-bc646da3cdef
+      responses:
+        '200':
+          description: The respondent was successfully created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespondentDetails'
+        '400':
+          description: One of the fields was missing or wrong (eg email already used, invalid enrolment code).
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          description: The business the enrolment is for couldn't be found or couldn't be correctly associated with.
   /respondents/email:
     put:
       summary: Changes a respondent's email address.
@@ -73,31 +122,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  emailAddress:
-                    type: string
-                    format: email
-                    example: new@email.com
-                  firstName:
-                    type: string
-                    example: Jenny
-                  id:
-                    type: string
-                    format: uuid
-                    example: b8a336a2-3d15-11ea-b77f-2e728ce88125
-                  lastName:
-                    type: string
-                    example: Testerson
-                  sampleUnitType:
-                    type: string
-                    example: BI
-                  status:
-                    type: string
-                    example: ACTIVE
-                  telephone:
-                    type: string
-                    example: "01234567890"
+                $ref: '#/components/schemas/RespondentDetails'
         '400':
           description: The provided request body was missing one of the required parameters.
         '401':
@@ -133,31 +158,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  emailAddress:
-                    type: string
-                    format: email
-                    example: new@email.com
-                  firstName:
-                    type: string
-                    example: Jenny
-                  id:
-                    type: string
-                    format: uuid
-                    example: b8a336a2-3d15-11ea-b77f-2e728ce88125
-                  lastName:
-                    type: string
-                    example: Testerson
-                  sampleUnitType:
-                    type: string
-                    example: BI
-                  status:
-                    type: string
-                    example: ACTIVE
-                  telephone:
-                    type: string
-                    example: "01234567890"
+                $ref: '#/components/schemas/RespondentDetails'
         '400':
           description: The provided request body was missing one of the required parameters.
         '401':
@@ -286,6 +287,33 @@ components:
         WWW_Authenticate:
           schema:
             type: string
+  schemas:
+    RespondentDetails:
+      type: object
+      properties:
+        emailAddress:
+          type: string
+          format: email
+          example: new@email.com
+        firstName:
+          type: string
+          example: Jenny
+        id:
+          type: string
+          format: uuid
+          example: b8a336a2-3d15-11ea-b77f-2e728ce88125
+        lastName:
+          type: string
+          example: Testerson
+        sampleUnitType:
+          type: string
+          example: BI
+        status:
+          type: string
+          example: ACTIVE
+        telephone:
+          type: string
+          example: "01234567890"
   securitySchemes:
     basicAuth:
       type: http
