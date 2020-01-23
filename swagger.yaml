@@ -84,7 +84,27 @@ paths:
       deprecated: true
       responses:
         '200':
-          description: The verification email has been sent to the notification service.
+          $ref: '#/components/responses/EmailSent'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/RespondentNotFoundError'
+  /resend-verification-email-expired-token/{token}:
+    post:
+      summary: Resends a verification email.
+      description: Decodes the token to find the respondent and sends them a new verification email.
+      tags:
+        - respondents
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema:
+            type: string
+      deprecated: true
+      responses:
+        '200':
+          $ref: '#/components/responses/EmailSent'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '404':
@@ -267,7 +287,7 @@ paths:
       deprecated: true
       responses:
         '200':
-          description: The password change link has been sent to the notification service.
+          $ref: '#/components/responses/EmailSent'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '404':
@@ -332,6 +352,8 @@ components:
               description:
                 type: string
                 example: Expired email verification token
+    EmailSent:
+      description: The email has been sent to the notification service.
   schemas:
     RespondentDetails:
       type: object
