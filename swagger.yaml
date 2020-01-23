@@ -46,6 +46,167 @@ paths:
                         name:
                           type: string
                           example: ras-party-db
+  /emailverification/{token}:
+    put:
+      summary: Verifies a respondent's email.
+      description: Checks the token is valid and in-date and then sets the respondent's account to ACTIVE.
+      tags:
+        - respondents
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema:
+            type: string
+      deprecated: true
+      responses:
+        '200':
+          description: The token was valid and the respondent's account is now active.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/BadTokenError'
+        '409':
+          $ref: '#/components/responses/ExpiredTokenError'
+  /resend-password-email-expired-token/{token}:
+    post:
+      summary: Resends a password reset email.
+      description: Decodes the token to find the respondent and sends them a new password reset email.
+      tags:
+        - respondents
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema:
+            type: string
+      deprecated: true
+      responses:
+        '200':
+          $ref: '#/components/responses/EmailSent'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/RespondentNotFoundError'
+  /resend-verification-email/{party_uuid}:
+    post:
+      summary: Resends a verification email.
+      description: Looks up a respondent via their `party_uuid` and sends them a new verification email.
+      tags:
+        - respondents
+      parameters:
+        - in: path
+          name: party_uuid
+          required: true
+          schema:
+            type: string
+            format: uuid
+      deprecated: true
+      responses:
+        '200':
+          $ref: '#/components/responses/EmailSent'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/RespondentNotFoundError'
+  /resend-verification-email-expired-token/{token}:
+    post:
+      summary: Resends a verification email.
+      description: Decodes the token to find the respondent and sends them a new verification email.
+      tags:
+        - respondents
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema:
+            type: string
+      deprecated: true
+      responses:
+        '200':
+          $ref: '#/components/responses/EmailSent'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/RespondentNotFoundError'
+  /respondents:
+    post:
+      summary: Creates a new respondent as well as any enrolments.
+      description: Will put a new respondent and their enrolments in the database. If an `ID` field is provided, it will use this rather than generating a new UUID.
+      tags:
+        - respondents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                emailAddress:
+                  type: string
+                  format: email
+                  example: new.employee@email.com
+                firstName:
+                  type: string
+                  example: Johnny
+                lastName:
+                  type: string
+                  example: Testerman
+                password:
+                  type: string
+                  example: TAM*$4[7q>dh?s)&
+                telephone:
+                  type: string
+                  example: 01234567890
+                enrolmentCode:
+                  type: string
+                  example: g023at6a
+                ID:
+                  type: string
+                  format: uuid
+                  example: 2bc5fd04-8f9e-4ec0-bddf-bc646da3cdef
+      responses:
+        '200':
+          description: The respondent was successfully created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespondentDetails'
+        '400':
+          description: One of the fields was missing or wrong (eg email already used, invalid enrolment code).
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/BusinessAssociationError'
+  /respondents/add_survey:
+    post:
+      summary: Adds an existing respondent to a survey.
+      description: Adds a respondent to a survey using their Party ID and an Enrolment Code.
+      tags:
+        - respondents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                party_id:
+                  type: string
+                  format: uuid
+                  example: 8bfd05da-a4cd-4c9e-8bdd-3cb1fdaa2202
+                enrolment_code:
+                  type: string
+                  example: 0pq6m33k
+      responses:
+        '200':
+          description: The respondent was enrolled on the survey.
+        '400':
+          description: One of the fields was missing or the enrolment code was invalid.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/BusinessAssociationError'
   /respondents/email:
     put:
       summary: Changes a respondent's email address.
@@ -73,31 +234,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  emailAddress:
-                    type: string
-                    format: email
-                    example: new@email.com
-                  firstName:
-                    type: string
-                    example: Jenny
-                  id:
-                    type: string
-                    format: uuid
-                    example: b8a336a2-3d15-11ea-b77f-2e728ce88125
-                  lastName:
-                    type: string
-                    example: Testerson
-                  sampleUnitType:
-                    type: string
-                    example: BI
-                  status:
-                    type: string
-                    example: ACTIVE
-                  telephone:
-                    type: string
-                    example: "01234567890"
+                $ref: '#/components/schemas/RespondentDetails'
         '400':
           description: The provided request body was missing one of the required parameters.
         '401':
@@ -133,31 +270,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  emailAddress:
-                    type: string
-                    format: email
-                    example: new@email.com
-                  firstName:
-                    type: string
-                    example: Jenny
-                  id:
-                    type: string
-                    format: uuid
-                    example: b8a336a2-3d15-11ea-b77f-2e728ce88125
-                  lastName:
-                    type: string
-                    example: Testerson
-                  sampleUnitType:
-                    type: string
-                    example: BI
-                  status:
-                    type: string
-                    example: ACTIVE
-                  telephone:
-                    type: string
-                    example: "01234567890"
+                $ref: '#/components/schemas/RespondentDetails'
         '400':
           description: The provided request body was missing one of the required parameters.
         '401':
@@ -166,6 +279,43 @@ paths:
           description: A respondent couldn't be found for the email address provided in `email_address`.
         '409':
           description: The email address provided in `new_email_address` is already in use for a different respondent.
+  /respondents/change_enrolment_status:
+    put:
+      summary: Changes a respondent's enrolment status on a survey.
+      description: Will set a respondent's enrolment status on the specified survey to the value of `change_flag` (usually `ENABLED` or `DISABLED`).
+      tags:
+        - respondents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                respondent_id:
+                  type: string
+                  format: uuid
+                  example: de9204d8-41bd-4468-ba28-2c3989312e60
+                business_id:
+                  type: string
+                  format: uuid
+                  example: 0be98912-9d32-436e-b71d-fa23da0cc856
+                survey_id:
+                  type: string
+                  format: uuid
+                  example: 7644bfdc-69a0-4149-bd84-e595b02920e1
+                change_flag:
+                  type: string
+                  example: DISABLED
+      responses:
+        '200':
+          description: The respondent's enrolment status was successfully changed.
+        '400':
+          $ref: '#/components/responses/FieldMissingError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/RespondentNotFoundError'
   /respondents/change_password:
     put:
       summary: Changes a respondent's password.
@@ -194,15 +344,77 @@ paths:
         '404':
           $ref: '#/components/responses/RespondentNotFoundError'
         '500':
-          description: There was a problem communicating with the auth service.
+          $ref: '#/components/responses/AuthServiceError'
+  /respondents/disable-user-enrolments:
+    patch:
+      summary: Disables all a respondent's enrolments.
+      description: Will disable all the enrolments a respondent has.
+      tags:
+        - respondents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: ex_employee@email.com
+      responses:
+        '200':
+          description: All the respondent's enrolments have been successfully disabled.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  description:
+                  message:
                     type: string
-                    example: Failed to change respondent password
+                    example: 3 enrolments removed
+        '400':
+          $ref: '#/components/responses/FieldMissingError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/RespondentNotFoundError'
+        '422':
+          description: Multiple respondents were found for the provided email address.
+  /respondents/edit-account-status/{party_id}:
+    put:
+      summary: Changes the account status of the specified respondent and notifies them by email.
+      description: Sets the account status to the value of `status_change` (to either `ACTIVE` or `SUSPENDED`) and sends an email via notification service to let the respondent know.
+      tags:
+        - respondents
+      parameters:
+        - in: path
+          name: party_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status_change:
+                  type: string
+                  example: SUSPENDED
+      responses:
+        '200':
+          description: The account status was successfully changed and an email sent to the notification service.
+        '400':
+          $ref: '#/components/responses/FieldMissingError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/RespondentNotFoundError'
+        '500':
+          $ref: '#/components/responses/AuthServiceError'
   /respondents/request_password_change:
     post:
       summary: Requests a password change link to be sent to a respondent's email.
@@ -223,7 +435,7 @@ paths:
       deprecated: true
       responses:
         '200':
-          description: The password change link has been sent to the notification service.
+          $ref: '#/components/responses/EmailSent'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '404':
@@ -244,30 +456,12 @@ paths:
       responses:
         '200':
           description: The token is valid.
-        '400':
-          description: Either the token can't be decoded or the respondent that has been decoded from the token isn't recognised.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  description:
-                    type: string
-                    example: Unknown email verification token
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '404':
-          $ref: '#/components/responses/RespondentNotFoundError'
+          $ref: '#/components/responses/BadTokenError'
         '409':
-          description: The token has expired.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  description:
-                    type: string
-                    example: Expired email verification token
+          $ref: '#/components/responses/ExpiredTokenError'
 components:
   responses:
     RespondentNotFoundError:
@@ -286,6 +480,61 @@ components:
         WWW_Authenticate:
           schema:
             type: string
+    BadTokenError:
+      description: Either the token can't be decoded or the respondent that has been decoded from the token isn't recognised.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              description:
+                type: string
+                example: Unknown email verification token
+    ExpiredTokenError:
+      description: The token has expired.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              description:
+                type: string
+                example: Expired email verification token
+    BusinessAssociationError:
+      description: The business the enrolment is for couldn't be found or couldn't be correctly associated with.
+    FieldMissingError:
+      description: One or more of the fields was missing.
+    AuthServiceError:
+      description: There was a problem communicating with the auth service.
+    EmailSent:
+      description: The email has been sent to the notification service.
+  schemas:
+    RespondentDetails:
+      type: object
+      properties:
+        emailAddress:
+          type: string
+          format: email
+          example: new@email.com
+        firstName:
+          type: string
+          example: Jenny
+        id:
+          type: string
+          format: uuid
+          example: b8a336a2-3d15-11ea-b77f-2e728ce88125
+        lastName:
+          type: string
+          example: Testerson
+        sampleUnitType:
+          type: string
+          example: BI
+        status:
+          type: string
+          example: ACTIVE
+        telephone:
+          type: string
+          example: "01234567890"
   securitySchemes:
     basicAuth:
       type: http
