@@ -58,6 +58,7 @@ paths:
           required: true
           schema:
             type: string
+      deprecated: true
       responses:
         '200':
           description: The token was valid and the respondent's account is now active.
@@ -67,6 +68,27 @@ paths:
           $ref: '#/components/responses/BadTokenError'
         '409':
           $ref: '#/components/responses/ExpiredTokenError'
+  /resend-verification-email/{party_uuid}:
+    post:
+      summary: Resends a verification email.
+      description: Looks up a respondent via their `party_uuid` and sends them a new verification email.
+      tags:
+        - respondents
+      parameters:
+        - in: path
+          name: party_uuid
+          required: true
+          schema:
+            type: string
+            format: uuid
+      deprecated: true
+      responses:
+        '200':
+          description: The verification email has been sent to the notification service.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/RespondentNotFoundError'
   /respondents:
     post:
       summary: Creates a new respondent as well as any enrolments.
