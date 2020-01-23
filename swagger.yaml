@@ -344,15 +344,7 @@ paths:
         '404':
           $ref: '#/components/responses/RespondentNotFoundError'
         '500':
-          description: There was a problem communicating with the auth service.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  description:
-                    type: string
-                    example: Failed to change respondent password
+          $ref: '#/components/responses/AuthServiceError'
   /respondents/disable-user-enrolments:
     patch:
       summary: Disables all a respondent's enrolments.
@@ -389,6 +381,40 @@ paths:
           $ref: '#/components/responses/RespondentNotFoundError'
         '422':
           description: Multiple respondents were found for the provided email address.
+  /respondents/edit-account-status/{party_id}:
+    put:
+      summary: Changes the account status of the specified respondent and notifies them by email.
+      description: Sets the account status to the value of `status_change` (to either `ACTIVE` or `SUSPENDED`) and sends an email via notification service to let the respondent know.
+      tags:
+        - respondents
+      parameters:
+        - in: path
+          name: party_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status_change:
+                  type: string
+                  example: SUSPENDED
+      responses:
+        '200':
+          description: The account status was successfully changed and an email sent to the notification service.
+        '400':
+          $ref: '#/components/responses/FieldMissingError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/RespondentNotFoundError'
+        '500':
+          $ref: '#/components/responses/AuthServiceError'
   /respondents/request_password_change:
     post:
       summary: Requests a password change link to be sent to a respondent's email.
@@ -478,6 +504,8 @@ components:
       description: The business the enrolment is for couldn't be found or couldn't be correctly associated with.
     FieldMissingError:
       description: One or more of the fields was missing.
+    AuthServiceError:
+      description: There was a problem communicating with the auth service.
     EmailSent:
       description: The email has been sent to the notification service.
   schemas:
