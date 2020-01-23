@@ -68,6 +68,26 @@ paths:
           $ref: '#/components/responses/BadTokenError'
         '409':
           $ref: '#/components/responses/ExpiredTokenError'
+  /resend-password-email-expired-token/{token}:
+    post:
+      summary: Resends a password reset email.
+      description: Decodes the token to find the respondent and sends them a new password reset email.
+      tags:
+        - respondents
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema:
+            type: string
+      deprecated: true
+      responses:
+        '200':
+          $ref: '#/components/responses/EmailSent'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/RespondentNotFoundError'
   /resend-verification-email/{party_uuid}:
     post:
       summary: Resends a verification email.
