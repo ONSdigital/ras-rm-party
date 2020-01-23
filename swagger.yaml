@@ -279,6 +279,43 @@ paths:
           description: A respondent couldn't be found for the email address provided in `email_address`.
         '409':
           description: The email address provided in `new_email_address` is already in use for a different respondent.
+  /respondents/change-enrolment-status:
+    put:
+      summary: Changes a respondent's enrolment status on a survey.
+      description: Will set a respondent's enrolment status on the specified survey to the value of `change_flag` (usually `ENABLED` or `DISABLED`).
+      tags:
+        - respondents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                respondent_id:
+                  type: string
+                  format: uuid
+                  example: de9204d8-41bd-4468-ba28-2c3989312e60
+                business_id:
+                  type: string
+                  format: uuid
+                  example: 0be98912-9d32-436e-b71d-fa23da0cc856
+                survey_id:
+                  type: string
+                  format: uuid
+                  example: 7644bfdc-69a0-4149-bd84-e595b02920e1
+                change_flag:
+                  type: string
+                  example: DISABLED
+      responses:
+        '200':
+          description: The respondent's enrolment status was successfully changed.
+        '400':
+          description: One or more of the fields was missing.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/RespondentNotFoundError'
   /respondents/change_password:
     put:
       summary: Changes a respondent's password.
