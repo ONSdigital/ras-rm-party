@@ -177,7 +177,36 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '500':
-          description: The business the enrolment is for couldn't be found or couldn't be correctly associated with.
+          $ref: '#/components/responses/BusinessAssociationError'
+  /respondents/add-survey:
+    post:
+      summary: Adds an existing respondent to a survey.
+      description: Adds a respondent to a survey using their Party ID and an Enrolment Code.
+      tags:
+        - respondents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                party_id:
+                  type: string
+                  format: uuid
+                  example: 8bfd05da-a4cd-4c9e-8bdd-3cb1fdaa2202
+                enrolment_code:
+                  type: string
+                  example: 0pq6m33k
+      responses:
+        '200':
+          description: The respondent was enrolled on the survey.
+        '400':
+          description: One of the fields was missing or the enrolment code was invalid.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/BusinessAssociationError'
   /respondents/email:
     put:
       summary: Changes a respondent's email address.
@@ -372,6 +401,8 @@ components:
               description:
                 type: string
                 example: Expired email verification token
+    BusinessAssociationError:
+      description: The business the enrolment is for couldn't be found or couldn't be correctly associated with.
     EmailSent:
       description: The email has been sent to the notification service.
   schemas:
