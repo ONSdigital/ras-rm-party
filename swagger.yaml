@@ -142,6 +142,38 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         '404':
           description: The business specified wasn't found.
+  /businesses/ref/{ref}:
+    get:
+      summary: Returns the information on a business by RU reference.
+      description: Returns the information stored on a business, as well as any associated parties and their enrolments. Will also return attributes (listed in the example response) if `?verbose=true`
+      tags:
+        - businesses
+      parameters:
+        - in: path
+          name: ref
+          required: true
+          schema:
+            type: string
+            example: "9999012345"
+        - in: query
+          name: verbose
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: The business was retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessDetailsFullWithAttributes'
+        '400':
+          $ref: '#/components/responses/FieldMissingError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: The business specified wasn't found.
   /emailverification/{token}:
     put:
       summary: Verifies a respondent's email.
