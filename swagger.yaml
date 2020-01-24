@@ -73,7 +73,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BusinessDetailsFullWithoutAttributes'
+                type: array
+                items:
+                  $ref: '#/components/schemas/BusinessDetailsFullWithoutAttributes'
         '400':
           $ref: '#/components/responses/FieldMissingError'
         '401':
@@ -100,6 +102,46 @@ paths:
           $ref: '#/components/responses/FieldMissingError'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+  /businesses/id/{id}:
+    get:
+      summary: Returns the information on a business by ID.
+      description: Returns the information stored on a business, as well as any associated parties and their enrolments. Will also return attributes (listed in the example response) if `?verbose=true`, and filter attributes by collection exercise if `?collection_exercise_id=<id>`
+      tags:
+        - businesses
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: 34597808-ec88-4e93-af2f-228e33ff7946
+        - in: query
+          name: verbose
+          required: false
+          schema:
+            type: boolean
+            default: false
+        - in: query
+          name: collection_exercise_id
+          required: false
+          schema:
+            type: string
+            format: uuid
+            example: 59bcf6d7-6aa9-4443-987f-2c458b1ce82b
+      responses:
+        '200':
+          description: The business was retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessDetailsFullWithAttributes'
+        '400':
+          $ref: '#/components/responses/FieldMissingError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: The business specified wasn't found.
   /emailverification/{token}:
     put:
       summary: Verifies a respondent's email.
