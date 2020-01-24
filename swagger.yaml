@@ -206,6 +206,54 @@ paths:
           $ref: '#/components/responses/FieldMissingError'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+  /businesses/search:
+    get:
+      summary: Searches for basic information on businesses based on the query.
+      description: Finds businesses based on information in the query, matching on the business name, trading as or business reference. Search is an AND (ie results must match all query strings) with `page` and `limit` pagination.
+      tags:
+        - businesses
+      parameters:
+        - in: query
+          name: query
+          required: true
+          schema:
+            type: string
+            example: "Ltd"
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: number
+            format: integer
+            default: 1
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: number
+            format: integer
+            default: 100
+      responses:
+        '200':
+          description: The business(es) were retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    ruref:
+                      type: string
+                      example: "9999012345"
+                    trading_as:
+                      type: string
+                      example: Trading Name Companies Holding
+                    name:
+                      type: string
+                      example: Fake Company (Ltd)
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
   /emailverification/{token}:
     put:
       summary: Verifies a respondent's email.
