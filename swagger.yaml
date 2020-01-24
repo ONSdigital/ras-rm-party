@@ -10,9 +10,11 @@ servers:
 
 tags:
   - name: info
-    description: Informational endpoints
+    description: Informational endpoints.
   - name: respondents
-    description: Endpoints for interacting with survey respondents
+    description: Endpoints for interacting with survey respondents.
+  - name: businesses
+    description: Endpoints for interacting with businesses.
 
 paths:
   /info:
@@ -46,6 +48,212 @@ paths:
                         name:
                           type: string
                           example: ras-party-db
+  /businesses: 
+    get:
+      summary: Returns the information on businesses by ID.
+      description: Returns the information (but not attributes) stored on business(es), as well as any associated parties and their enrolments.
+      tags:
+        - businesses
+      parameters:
+        - in: query
+          name: id
+          required: true
+          schema:
+            type: array
+            items:
+              type: string
+              format: uuid
+              example: 5858fcaa-49e7-4791-9655-793694e15c3a
+            minItems: 1
+          style: form
+          explode: true
+      responses:
+        '200':
+          description: The business(es) were retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BusinessDetailsFullWithoutAttributes'
+        '400':
+          $ref: '#/components/responses/FieldMissingError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+    post:
+      summary: Creates a business (or creates versioned attributes against them if they exist).
+      description: Will take the data provided and create a business if they don't exist, or create a new version of their attributes if they do. `sampleUnitRef`, `sampleUnitType` and `sampleSummaryId` are mandatory, as are `runname1-3` if `attributes` is included.
+      tags:
+        - businesses
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+                $ref: '#/components/schemas/BusinessDetailsShortWithAttributes'
+      responses:
+        '200':
+          description: The business was added (or their attributes were updated).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessDetailsFullWithAttributes'
+        '400':
+          $ref: '#/components/responses/FieldMissingError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+  /businesses/id/{id}:
+    get:
+      summary: Returns the information on a business by ID.
+      description: Returns the information stored on a business, as well as any associated parties and their enrolments. Will also return attributes (listed in the example response) if `?verbose=true`, and filter attributes by collection exercise if `?collection_exercise_id=<id>`
+      tags:
+        - businesses
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: 34597808-ec88-4e93-af2f-228e33ff7946
+        - in: query
+          name: verbose
+          required: false
+          schema:
+            type: boolean
+            default: false
+        - in: query
+          name: collection_exercise_id
+          required: false
+          schema:
+            type: string
+            format: uuid
+            example: 59bcf6d7-6aa9-4443-987f-2c458b1ce82b
+      responses:
+        '200':
+          description: The business was retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessDetailsFullWithAttributes'
+        '400':
+          $ref: '#/components/responses/FieldMissingError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: The business specified wasn't found.
+  /businesses/ref/{ref}:
+    get:
+      summary: Returns the information on a business by RU reference.
+      description: Returns the information stored on a business, as well as any associated parties and their enrolments. Will also return attributes (listed in the example response) if `?verbose=true`
+      tags:
+        - businesses
+      parameters:
+        - in: path
+          name: ref
+          required: true
+          schema:
+            type: string
+            example: "9999012345"
+        - in: query
+          name: verbose
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: The business was retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessDetailsFullWithAttributes'
+        '400':
+          $ref: '#/components/responses/FieldMissingError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: The business specified wasn't found.
+  /businesses/sample/link/{sampleSummaryId}:
+    put:
+      summary: Associates a business with a collection exercise via a sample.
+      description: Updates the business attributes to add the specified `collectionExerciseId` to the specified `sampleSummaryId`
+      tags:
+        - businesses
+      parameters:
+        - in: path
+          name: sampleSummaryId
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: 65dccde8-5a10-45dc-be32-4ef59dca2682
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                collectionExerciseId:
+                  type: string
+                  format: uuid
+                  example: 62f682a9-c223-4f15-942e-93d00d400daf
+      responses:
+        '200':
+          description: The collection exercise was successfully linked to the business.
+        '400':
+          $ref: '#/components/responses/FieldMissingError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+  /businesses/search:
+    get:
+      summary: Searches for basic information on businesses based on the query.
+      description: Finds businesses based on information in the query, matching on the business name, trading as or business reference. Search is an AND (ie results must match all query strings) with `page` and `limit` pagination.
+      tags:
+        - businesses
+      parameters:
+        - in: query
+          name: query
+          required: true
+          schema:
+            type: string
+            example: "Ltd"
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: number
+            format: integer
+            default: 1
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: number
+            format: integer
+            default: 100
+      responses:
+        '200':
+          description: The business(es) were retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    ruref:
+                      type: string
+                      example: "9999012345"
+                    trading_as:
+                      type: string
+                      example: Trading Name Companies Holding
+                    name:
+                      type: string
+                      example: Fake Company (Ltd)
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
   /emailverification/{token}:
     put:
       summary: Verifies a respondent's email.
@@ -503,7 +711,7 @@ components:
     BusinessAssociationError:
       description: The business the enrolment is for couldn't be found or couldn't be correctly associated with.
     FieldMissingError:
-      description: One or more of the fields was missing.
+      description: One or more of the fields was missing or of an invalid format.
     AuthServiceError:
       description: There was a problem communicating with the auth service.
     EmailSent:
@@ -535,6 +743,294 @@ components:
         telephone:
           type: string
           example: "01234567890"
+    BusinessDetailsShortWithAttributes:
+      type: object
+      properties:
+        sampleUnitRef:
+          type: string
+          format: uuid
+          example: ede74d65-e45c-4451-ab31-6e4ebdd4d935
+        sampleUnitType:
+          type: string
+          example: B
+        sampleSummaryId:
+          type: string
+          format: uuid
+          example: c9a4f9a5-573e-4870-a114-42279ab2aa3a
+        attributes:
+          type: object
+          properties:
+            ruref:
+              type: string
+              example: "9990123456"
+            birthdate:
+              type: string
+              example: 22/01/2001
+            checkletter:
+              type: string
+              example: K
+            currency:
+              type: string
+              example: S
+            entname1:
+              type: string
+              example: Fake Company (Ltd)
+            entname2:
+              type: string
+              example: Alternative Name Producers
+            entname3:
+              type: string
+              example: Small Canine Appreciation Concern
+            entref:
+              type: string
+              example: "9990123456"
+            entremkr:
+              type: string
+              example: E
+            formType:
+              type: string
+              example: "0001"
+            formtype:
+              type: string
+              example: "0001"
+            froempment:
+                type: number
+                format: integer
+                example: 10
+            frosic2007:
+                type: string
+                example: "12345"
+            frosic92:
+                type: string
+                example: "12345"
+            frotover:
+                type: number
+                format: integer
+                example: 1
+            inclexcl:
+              type: string
+            legalstatus:
+              type: string
+              example: "3"
+            region:
+              type: string
+              example: AA
+            runame1:
+              type: string
+              example: Fake Company (Ltd)
+            runame2:
+              type: string
+              example: Alternative Name Producers
+            runame3:
+              type: string
+              example: Small Canine Appreciation Concern
+            rusic2007:
+              type: string
+              example: "12345"
+            rusic92:
+              type: string
+              example: "12345"
+            seltype:
+              type: string
+              example: P
+            tradstyle1:
+              type: string
+            cell_no:
+              type: number
+              format: integer
+              example: 0
+    BusinessDetailsFullWithoutAttributes:
+      type: object
+      properties:
+        associations:
+          type: array
+          items:
+            type: object
+            properties:
+              enrolments:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    enrolmentStatus:
+                      type: string
+                      example: ENABLED
+                    surveyId:
+                      type: string
+                      format: uuid
+                      example: 1c266387-bd7f-4ccb-a62e-78a0106149dd
+              name: 
+                type: string
+                example: Another Company Name PLC
+              id: 
+                type: string
+                format: uuid
+                example: ed938f69-e0ce-4021-86f9-c4e0f9800e44
+              sampleUnitRef:
+                type: string
+                format: uuid
+                example: 7768b21c-cac6-4dc8-bcb6-1a9fe829c14b
+              sampleUnitType:
+                type: string
+                example: B
+        sampleUnitRef:
+          type: string
+          format: uuid
+          example: ede74d65-e45c-4451-ab31-6e4ebdd4d935
+        sampleUnitType:
+          type: string
+          example: B
+        sampleSummaryId:
+          type: string
+          format: uuid
+          example: c9a4f9a5-573e-4870-a114-42279ab2aa3a
+        id:
+          type: string
+          format: uuid
+          example: 4686d17c-ee38-4880-8b1f-b3ee8e1bfc4d
+        name:
+          type: string
+          example: Fake Comapny (Ltd) - Alternative Name Producers - Small Canine Appreciation Concern
+        trading_as:
+          type: string
+          example: Trading Name Companies Holding
+    BusinessDetailsFullWithAttributes:
+      type: object
+      properties:
+        associations:
+          type: array
+          items:
+            type: object
+            properties:
+              enrolments:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    enrolmentStatus:
+                      type: string
+                      example: ENABLED
+                    surveyId:
+                      type: string
+                      format: uuid
+                      example: 1c266387-bd7f-4ccb-a62e-78a0106149dd
+              name: 
+                type: string
+                example: Another Company Name PLC
+              id: 
+                type: string
+                format: uuid
+                example: ed938f69-e0ce-4021-86f9-c4e0f9800e44
+              sampleUnitRef:
+                type: string
+                format: uuid
+                example: 7768b21c-cac6-4dc8-bcb6-1a9fe829c14b
+              sampleUnitType:
+                type: string
+                example: B
+        sampleUnitRef:
+          type: string
+          format: uuid
+          example: ede74d65-e45c-4451-ab31-6e4ebdd4d935
+        sampleUnitType:
+          type: string
+          example: B
+        sampleSummaryId:
+          type: string
+          format: uuid
+          example: c9a4f9a5-573e-4870-a114-42279ab2aa3a
+        id:
+          type: string
+          format: uuid
+          example: 4686d17c-ee38-4880-8b1f-b3ee8e1bfc4d
+        name:
+          type: string
+          example: Fake Comapny (Ltd) - Alternative Name Producers - Small Canine Appreciation Concern
+        trading_as:
+          type: string
+          example: Trading Name Companies Holding
+        attributes:
+          type: object
+          properties:
+            ruref:
+              type: string
+              example: "9990123456"
+            birthdate:
+              type: string
+              example: 22/01/2001
+            checkletter:
+              type: string
+              example: K
+            currency:
+              type: string
+              example: S
+            entname1:
+              type: string
+              example: Fake Company (Ltd)
+            entname2:
+              type: string
+              example: Alternative Name Producers
+            entname3:
+              type: string
+              example: Small Canine Appreciation Concern
+            entref:
+              type: string
+              example: "9990123456"
+            entremkr:
+              type: string
+              example: E
+            formType:
+              type: string
+              example: "0001"
+            formtype:
+              type: string
+              example: "0001"
+            froempment:
+                type: number
+                format: integer
+                example: 10
+            frosic2007:
+                type: string
+                example: "12345"
+            frosic92:
+                type: string
+                example: "12345"
+            frotover:
+                type: number
+                format: integer
+                example: 1
+            inclexcl:
+              type: string
+            legalstatus:
+              type: string
+              example: "3"
+            region:
+              type: string
+              example: AA
+            runame1:
+              type: string
+              example: Fake Company (Ltd)
+            runame2:
+              type: string
+              example: Alternative Name Producers
+            runame3:
+              type: string
+              example: Small Canine Appreciation Concern
+            rusic2007:
+              type: string
+              example: "12345"
+            rusic92:
+              type: string
+              example: "12345"
+            seltype:
+              type: string
+              example: P
+            tradstyle1:
+              type: string
+            cell_no:
+              type: number
+              format: integer
+              example: 0
   securitySchemes:
     basicAuth:
       type: http
