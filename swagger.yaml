@@ -300,6 +300,78 @@ paths:
           $ref: '#/components/responses/FieldMissingError'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+  /parties/type/B/id/{id}:
+    get:
+      summary: Returns the information on a business by ID.
+      description: Returns the information and attributes stored on a business. Will also return any associated parties and their enrolments if `survey_id` is provided (listed in the example response), optionally filtered by `enrolment_status`.
+      tags:
+        - businesses
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: 34597808-ec88-4e93-af2f-228e33ff7946
+        - in: query
+          name: survey_id
+          required: false
+          schema:
+            type: string
+            format: uuid
+            example: 98223816-1f7d-4e2e-9375-3d1f512e9d76
+        - in: query
+          name: enrolment_status
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+              example: ENROLLED
+          style: form
+          explode: true
+      deprecated: true
+      responses:
+        '200':
+          description: The business was retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessDetailsFullWithAttributes'
+        '400':
+          $ref: '#/components/responses/FieldMissingError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: The business specified wasn't found.
+  /parties/type/B/ref/{ref}:
+    get:
+      summary: Returns the information on a business by RU reference.
+      description: Returns the information stored on a business, as well as any associated parties and their enrolments. Will also return attributes.
+      tags:
+        - businesses
+      parameters:
+        - in: path
+          name: ref
+          required: true
+          schema:
+            type: string
+            example: "9999012345"
+      deprecated: true
+      responses:
+        '200':
+          description: The business was retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessDetailsFullWithAttributes'
+        '400':
+          $ref: '#/components/responses/FieldMissingError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: The business specified wasn't found.
   /resend-password-email-expired-token/{token}:
     post:
       summary: Resends a password reset email.
