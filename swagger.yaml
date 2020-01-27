@@ -372,6 +372,78 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         '404':
           description: The business specified wasn't found.
+  /parties/type/BI/id/{id}:
+    get:
+      summary: Returns the information on a respondent by ID.
+      description: Returns the information stored on a respondent. Will also return any associated parties and their enrolments if `survey_id` is provided (listed in the example response), optionally filtered by `enrolment_status`.
+      tags:
+        - respondents
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: 34597808-ec88-4e93-af2f-228e33ff7946
+        - in: query
+          name: survey_id
+          required: false
+          schema:
+            type: string
+            format: uuid
+            example: 98223816-1f7d-4e2e-9375-3d1f512e9d76
+        - in: query
+          name: enrolment_status
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+              example: ENROLLED
+          style: form
+          explode: true
+      deprecated: true
+      responses:
+        '200':
+          description: The respondent was retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespondentDetailsWithAttributes'
+        '400':
+          $ref: '#/components/responses/FieldMissingError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: The respondent specified wasn't found.
+  /parties/type/BI/ref/{ref}:
+    get:
+      summary: Returns the information on a respondent by RU reference.
+      description: Returns the information stored on a respondent as well as any associated parties and their enrolments.
+      tags:
+        - respondents
+      parameters:
+        - in: path
+          name: ref
+          required: true
+          schema:
+            type: string
+            example: "9999012345"
+      deprecated: true
+      responses:
+        '200':
+          description: The respondent was retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespondentDetailsWithAttributes'
+        '400':
+          $ref: '#/components/responses/FieldMissingError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: The respondent specified wasn't found.
   /resend-password-email-expired-token/{token}:
     post:
       summary: Resends a password reset email.
@@ -839,6 +911,66 @@ components:
         telephone:
           type: string
           example: "01234567890"
+    RespondentDetailsWithAttributes:
+      type: object
+      properties:
+        attributes:
+          type: object
+          properties:
+            emailAddress:
+              type: string
+              format: email
+              example: new@email.com
+            id:
+              type: string
+              format: uuid
+              example: b8a336a2-3d15-11ea-b77f-2e728ce88125
+            lastName:
+              type: string
+              example: Testerson
+            firstName:
+              type: string
+              example: Jenny
+            telephone:
+              type: string
+              example: "01234567890"
+        sampleUnitType:
+          type: string
+          example: BI
+        status:
+          type: string
+          example: ACTIVE
+        associations:
+          type: array
+          items:
+            type: object
+            properties:
+              enrolments:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    enrolmentStatus:
+                      type: string
+                      example: ENABLED
+                    surveyId:
+                      type: string
+                      format: uuid
+                      example: 1c266387-bd7f-4ccb-a62e-78a0106149dd
+              name: 
+                type: string
+                example: Another Company Name PLC
+              id: 
+                type: string
+                format: uuid
+                example: ed938f69-e0ce-4021-86f9-c4e0f9800e44
+              sampleUnitRef:
+                type: string
+                format: uuid
+                example: 7768b21c-cac6-4dc8-bcb6-1a9fe829c14b
+              sampleUnitType:
+                type: string
+                example: B
     BusinessDetailsShortWithAttributes:
       type: object
       properties:
