@@ -279,7 +279,7 @@ paths:
   /parties:
     post:
       summary: Creates a business (or creates versioned attributes against them if they exist).
-      description: Will take the data provided and create a business if they don't exist, or create a new version of their attributes if they do. `sampleUnitRef`, `sampleUnitType` and `sampleSummaryId` are mandatory, as are `runname1-3` if `attributes` is included. Functionally identical to `POST /businesses`
+      description: Will take the data provided and create a business if they don't exist, or create a new version of their attributes if they do. `sampleUnitRef`, `sampleUnitType` and `sampleSummaryId` are mandatory, as are `runname1-3` if `attributes` is included. Effectively identical to `POST /businesses`.
       tags:
         - businesses
       deprecated: true
