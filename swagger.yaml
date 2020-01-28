@@ -723,7 +723,7 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '404':
-          description: A respondent couldn't be found for the email address provided in `email_address`.
+          $ref: '#/components/responses/RespondentNotFoundError'
         '409':
           description: The email address provided in `new_email_address` is already in use for a different respondent.
   /respondents/change_enrolment_status:
@@ -868,7 +868,6 @@ paths:
       description: Retrieves a respondent by a single ID (does not accept lists of IDs and will return one record).
       tags:
         - respondents
-      deprecated: true
       parameters:
         - in: path
           name: id
@@ -877,6 +876,7 @@ paths:
             type: string
             format: uuid
             example: 34597808-ec88-4e93-af2f-228e33ff7946
+      deprecated: true
       responses:
         '200':
           description: The respondent was successfully retrieved.
