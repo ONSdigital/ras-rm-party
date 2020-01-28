@@ -508,7 +508,7 @@ paths:
   /respondents:
     get:
       summary: Returns the information on a respondent by ID or a combination of attributes.
-      description: Retrieves a respondent by either ID or one or more of first name, last name and email. Will error if both ID and an attribute are provided. Will be paginated if using attributes.
+      description: Retrieves a respondent by either ID or one or more of first name, last name and email. Will error if both ID and an attribute are provided. Will be paginated and return a count (listed in the example response) if using attributes.
       tags:
         - respondents
       parameters:
@@ -563,9 +563,16 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/RespondentDetailsWithAssociations'
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RespondentDetailsWithAssociations'
+                  count:
+                    type: number
+                    format: integer
+                    example: 33
         '400':
           description: One of the fields was missing or both `ID` and one or more of the attribute fields were provided.
         '401':
