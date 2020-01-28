@@ -689,7 +689,7 @@ paths:
         '404':
           description: A respondent couldn't be found for the email address provided in `email_address`.
         '409':
-          description: The email address provided in `new_email_address` is already in use for a different respondent.
+          $ref: '#/components/responses/EmailInUseError'
   /respondents/change_email:
     put:
       summary: Changes a respondent's email address.
@@ -725,7 +725,7 @@ paths:
         '404':
           $ref: '#/components/responses/RespondentNotFoundError'
         '409':
-          description: The email address provided in `new_email_address` is already in use for a different respondent.
+          $ref: '#/components/responses/EmailInUseError'
   /respondents/change_enrolment_status:
     put:
       summary: Changes a respondent's enrolment status on a survey.
@@ -890,6 +890,54 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         '404':
           $ref: '#/components/responses/RespondentNotFoundError'
+    put:
+      summary: Updates a respondent's details.
+      description: Updates the name, telephone number and email address of a respondent. If the name/telephone update works but the email address update doesn't, the name/telephone update will not be rolled back.
+      tags:
+        - respondents
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: 34597808-ec88-4e93-af2f-228e33ff7946
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstName:
+                  type: string
+                  example: Penelope
+                lastName:
+                  type: string
+                  example: T'estelle
+                telephone:
+                  type: string
+                  example: "01234567890"
+                email_address:
+                  type: string
+                  format: email
+                  example: old@email.com
+                new_email_address:
+                  type: string
+                  format: email
+                  example: new@email.com
+      responses:
+        '200':
+          description: The respondent's details were successfully updated.
+        '400':
+          $ref: '#/components/responses/FieldMissingError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/RespondentNotFoundError'
+        '409':
+          $ref: '#/components/responses/EmailInUseError'
   /respondents/request_password_change:
     post:
       summary: Requests a password change link to be sent to a respondent's email.
@@ -981,6 +1029,8 @@ components:
       description: One or more of the fields was missing or of an invalid format.
     AuthServiceError:
       description: There was a problem communicating with the auth service.
+    EmailInUseError:
+      description: The new email address provided is already in use for a different respondent.
     EmailSent:
       description: The email has been sent to the notification service.
   schemas:
