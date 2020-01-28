@@ -792,6 +792,51 @@ paths:
           $ref: '#/components/responses/RespondentNotFoundError'
         '500':
           $ref: '#/components/responses/AuthServiceError'
+  /respondents/claim:
+    get:
+      summary: Checks if a respondent has a valid claim on a specific business and survey.
+      description: Will return `Valid` or `Invalid` depending on whether the respondent has a valid claim.
+      tags:
+        - respondents
+      parameters:
+        - in: path
+          name: respondent_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: 34597808-ec88-4e93-af2f-228e33ff7946
+        - in: path
+          name: business_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: 62f682a9-c223-4f15-942e-93d00d400daf
+        - in: path
+          name: survey_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: ea23f3b1-e787-4042-a103-c78c5b91d09b
+      responses:
+        '200':
+          description: The claim was successfully checked.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    type: string
+                    example: Valid
+        '400':
+          $ref: '#/components/responses/FieldMissingError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/RespondentNotFoundError'
   /respondents/disable-user-enrolments:
     patch:
       summary: Disables all a respondent's enrolments.
@@ -841,6 +886,7 @@ paths:
           schema:
             type: string
             format: uuid
+            example: 34597808-ec88-4e93-af2f-228e33ff7946
       requestBody:
         required: true
         content:
