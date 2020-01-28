@@ -862,6 +862,34 @@ paths:
           $ref: '#/components/responses/RespondentNotFoundError'
         '500':
           $ref: '#/components/responses/AuthServiceError'
+  /respondents/id/{id}:
+    get:
+      summary: Returns the information on a respondent by ID.
+      description: Retrieves a respondent by a single ID (does not accept lists of IDs and will return one record).
+      tags:
+        - respondents
+      deprecated: true
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: 34597808-ec88-4e93-af2f-228e33ff7946
+      responses:
+        '200':
+          description: The respondent was successfully retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespondentDetailsWithAssociations'
+        '400':
+          $ref: '#/components/responses/FieldMissingError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/RespondentNotFoundError'
   /respondents/request_password_change:
     post:
       summary: Requests a password change link to be sent to a respondent's email.
