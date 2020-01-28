@@ -410,7 +410,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RespondentDetailsWithAttributes'
+                $ref: '#/components/schemas/RespondentDetailsWithAssociationsAndAttributes'
         '400':
           $ref: '#/components/responses/FieldMissingError'
         '401':
@@ -437,7 +437,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RespondentDetailsWithAttributes'
+                $ref: '#/components/schemas/RespondentDetailsWithAssociationsAndAttributes'
         '400':
           $ref: '#/components/responses/FieldMissingError'
         '401':
@@ -506,6 +506,77 @@ paths:
         '404':
           $ref: '#/components/responses/RespondentNotFoundError'
   /respondents:
+    get:
+      summary: Returns the information on a respondent by ID or a combination of attributes.
+      description: Retrieves a respondent by either ID or one or more of first name, last name and email. Will error if both ID and an attribute are provided. Will be paginated and return a count (listed in the example response) if using attributes.
+      tags:
+        - respondents
+      parameters:
+        - in: query
+          name: id
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+              format: uuid
+              example: 5858fcaa-49e7-4791-9655-793694e15c3a
+            minItems: 1
+          style: form
+          explode: true
+        - in: query
+          name: first_name
+          required: false
+          schema:
+            type: string
+            example: Jimmy
+        - in: query
+          name: last_name
+          required: false
+          schema:
+            type: string
+            example: Test
+        - in: query
+          name: email_address
+          required: false
+          schema:
+            type: string
+            format: email
+            example: jimmy.test@email.com
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: number
+            format: integer
+            default: 1
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: number
+            format: integer
+            default: 10
+      responses:
+        '200':
+          description: The respondent(s) were retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RespondentDetailsWithAssociations'
+                  count:
+                    type: number
+                    format: integer
+                    example: 33
+        '400':
+          description: One of the fields was missing or both `ID` and one or more of the attribute fields were provided.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
     post:
       summary: Creates a new respondent as well as any enrolments.
       description: Will put a new respondent and their enrolments in the database. If an `ID` field is provided, it will use this rather than generating a new UUID.
@@ -618,7 +689,7 @@ paths:
         '404':
           description: A respondent couldn't be found for the email address provided in `email_address`.
         '409':
-          description: The email address provided in `new_email_address` is already in use for a different respondent.
+          $ref: '#/components/responses/EmailInUseError'
   /respondents/change_email:
     put:
       summary: Changes a respondent's email address.
@@ -652,9 +723,9 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '404':
-          description: A respondent couldn't be found for the email address provided in `email_address`.
+          $ref: '#/components/responses/RespondentNotFoundError'
         '409':
-          description: The email address provided in `new_email_address` is already in use for a different respondent.
+          $ref: '#/components/responses/EmailInUseError'
   /respondents/change_enrolment_status:
     put:
       summary: Changes a respondent's enrolment status on a survey.
@@ -721,6 +792,51 @@ paths:
           $ref: '#/components/responses/RespondentNotFoundError'
         '500':
           $ref: '#/components/responses/AuthServiceError'
+  /respondents/claim:
+    get:
+      summary: Checks if a respondent has a valid claim on a specific business and survey.
+      description: Will return `Valid` or `Invalid` depending on whether the respondent has a valid claim.
+      tags:
+        - respondents
+      parameters:
+        - in: path
+          name: respondent_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: 34597808-ec88-4e93-af2f-228e33ff7946
+        - in: path
+          name: business_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: 62f682a9-c223-4f15-942e-93d00d400daf
+        - in: path
+          name: survey_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: ea23f3b1-e787-4042-a103-c78c5b91d09b
+      responses:
+        '200':
+          description: The claim was successfully checked.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    type: string
+                    example: Valid
+        '400':
+          $ref: '#/components/responses/FieldMissingError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/RespondentNotFoundError'
   /respondents/disable-user-enrolments:
     patch:
       summary: Disables all a respondent's enrolments.
@@ -770,6 +886,7 @@ paths:
           schema:
             type: string
             format: uuid
+            example: 34597808-ec88-4e93-af2f-228e33ff7946
       requestBody:
         required: true
         content:
@@ -791,6 +908,82 @@ paths:
           $ref: '#/components/responses/RespondentNotFoundError'
         '500':
           $ref: '#/components/responses/AuthServiceError'
+  /respondents/id/{id}:
+    get:
+      summary: Returns the information on a respondent by ID.
+      description: Retrieves a respondent by a single ID (does not accept lists of IDs and will return one record).
+      tags:
+        - respondents
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: 34597808-ec88-4e93-af2f-228e33ff7946
+      deprecated: true
+      responses:
+        '200':
+          description: The respondent was successfully retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespondentDetailsWithAssociations'
+        '400':
+          $ref: '#/components/responses/FieldMissingError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/RespondentNotFoundError'
+    put:
+      summary: Updates a respondent's details.
+      description: Updates the name, telephone number and email address of a respondent. If the name/telephone update works but the email address update doesn't, the name/telephone update will not be rolled back.
+      tags:
+        - respondents
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: 34597808-ec88-4e93-af2f-228e33ff7946
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstName:
+                  type: string
+                  example: Penelope
+                lastName:
+                  type: string
+                  example: T'estelle
+                telephone:
+                  type: string
+                  example: "01234567890"
+                email_address:
+                  type: string
+                  format: email
+                  example: old@email.com
+                new_email_address:
+                  type: string
+                  format: email
+                  example: new@email.com
+      responses:
+        '200':
+          description: The respondent's details were successfully updated.
+        '400':
+          $ref: '#/components/responses/FieldMissingError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/RespondentNotFoundError'
+        '409':
+          $ref: '#/components/responses/EmailInUseError'
   /respondents/request_password_change:
     post:
       summary: Requests a password change link to be sent to a respondent's email.
@@ -882,6 +1075,8 @@ components:
       description: One or more of the fields was missing or of an invalid format.
     AuthServiceError:
       description: There was a problem communicating with the auth service.
+    EmailInUseError:
+      description: The new email address provided is already in use for a different respondent.
     EmailSent:
       description: The email has been sent to the notification service.
   schemas:
@@ -911,7 +1106,64 @@ components:
         telephone:
           type: string
           example: "01234567890"
-    RespondentDetailsWithAttributes:
+    RespondentDetailsWithAssociations:
+      type: object
+      properties:
+        emailAddress:
+          type: string
+          format: email
+          example: new@email.com
+        id:
+          type: string
+          format: uuid
+          example: b8a336a2-3d15-11ea-b77f-2e728ce88125
+        lastName:
+          type: string
+          example: Testerson
+        firstName:
+          type: string
+          example: Jenny
+        telephone:
+          type: string
+          example: "01234567890"
+        sampleUnitType:
+          type: string
+          example: BI
+        status:
+          type: string
+          example: ACTIVE
+        associations:
+          type: array
+          items:
+            type: object
+            properties:
+              enrolments:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    enrolmentStatus:
+                      type: string
+                      example: ENABLED
+                    surveyId:
+                      type: string
+                      format: uuid
+                      example: 1c266387-bd7f-4ccb-a62e-78a0106149dd
+              name: 
+                type: string
+                example: Another Company Name PLC
+              id: 
+                type: string
+                format: uuid
+                example: ed938f69-e0ce-4021-86f9-c4e0f9800e44
+              sampleUnitRef:
+                type: string
+                format: uuid
+                example: 7768b21c-cac6-4dc8-bcb6-1a9fe829c14b
+              sampleUnitType:
+                type: string
+                example: B
+    RespondentDetailsWithAssociationsAndAttributes:
       type: object
       properties:
         attributes:
