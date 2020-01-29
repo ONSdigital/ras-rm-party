@@ -21,6 +21,7 @@ paths:
     get:
       summary: Returns basic information about the service.
       description: Returns service information. If the `REPORT_DEPENDENCIES` environment variable is set to true, it will also report information on service dependencies.
+      security: []
       tags:
         - info
       servers:

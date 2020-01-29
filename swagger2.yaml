@@ -1,0 +1,54 @@
+openapi: 3.0.2
+info:
+  title: RAS/RM Party Service
+  description: A service for dealing with various parties (businesses, survey respondents etc and their enrolments)
+  version: "2.0"
+
+servers:
+  - url: https://localhost:8081/party-api/v2
+    description: The default path for Party in ras-rm-docker-dev
+
+tags:
+  - name: info
+    description: Informational endpoints.
+  - name: respondents
+    description: Endpoints for interacting with survey respondents.
+  - name: businesses
+    description: Endpoints for interacting with businesses.
+
+paths:
+  /info:
+    get:
+      summary: Returns basic information about the service.
+      description: Returns service information. If the `REPORT_DEPENDENCIES` environment variable is set to true, it will also report information on service dependencies.
+      security: []
+      tags:
+        - info
+      servers:
+        - url: https://localhost:8081
+          description: The /info path doesn't use the /party-api/v1 prefix
+      responses:
+        '200':
+          description: A JSON of basic information about the service.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    example: ras-rm-party
+                  version:
+                    type: string
+                    example: "1.12.0"
+        '404':
+          description: The basic information about the service couldn't be retrieved. The service may be configured incorrectly.
+
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+
+security:
+  - basicAuth: []
