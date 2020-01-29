@@ -21,6 +21,7 @@ paths:
     get:
       summary: Returns basic information about the service.
       description: Returns service information. If the `REPORT_DEPENDENCIES` environment variable is set to true, it will also report information on service dependencies.
+      security: []
       tags:
         - info
       servers:
@@ -40,3 +41,14 @@ paths:
                   version:
                     type: string
                     example: "1.12.0"
+        '404':
+          description: The basic information about the service couldn't be retrieved. The service may be configured incorrectly.
+
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+
+security:
+  - basicAuth: []
