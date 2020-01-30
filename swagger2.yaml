@@ -120,6 +120,8 @@ paths:
       responses:
         '204':
           description: A request to delete was successfully accepted.
+        '400':
+          $ref: '#/components/responses/MalformedIDError'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '404':
@@ -136,6 +138,8 @@ components:
         WWW_Authenticate:
           schema:
             type: string
+    MalformedIDError:
+      description: The ID provided wasn't a proper UUID.
     RespondentNotFoundError:
       description: The respondent specified wasn't found.
       content:
