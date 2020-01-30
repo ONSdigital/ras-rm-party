@@ -43,12 +43,48 @@ paths:
                     example: "1.12.0"
         '404':
           description: The basic information about the service couldn't be retrieved. The service may be configured incorrectly.
-
+  /respondents/{id}:
+    delete:
+      summary: Deletes a respondent from the service.
+      description: Unenrols a respondent from all surveys then deletes their enrolment history, business associations, pending enrolments and their representation in the service. Will not delete their account from the auth service.
+      tags:
+        - respondents
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: 34597808-ec88-4e93-af2f-228e33ff7946
+      responses:
+        '204':
+          description: A request to delete was successfully accepted.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/RespondentNotFoundError'
 components:
   securitySchemes:
     basicAuth:
       type: http
       scheme: basic
-
+  responses:
+    UnauthorizedError:
+      description: Authentication information is missing or invalid.
+      headers:
+        WWW_Authenticate:
+          schema:
+            type: string
+    RespondentNotFoundError:
+      description: The respondent specified wasn't found.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              description:
+                type: string
+                example: Respondent does not exist
 security:
   - basicAuth: []
