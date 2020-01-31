@@ -88,6 +88,16 @@ paths:
             type: string
             format: uuid
             example: 71323711-6518-49d5-9767-c42b9fb03639
+        - in: query
+          name: offset
+          schema:
+            type: number
+            format: integer
+            default: 0
+        - in: query
+          name: limit
+          schema:
+            type: number
       responses:
         '200':
           description: The respondent was retrieved successfully.
