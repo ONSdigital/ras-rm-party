@@ -104,19 +104,66 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/RespondentDetails'
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RespondentDetails'
         '400':
           description: No query parameters were provided.
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '404':
           description: No respondents were found based on the parameters provided.
+    post:
+      summary: Creates a new respondent.
+      description: | 
+        Creates a new respondent from the data in the RequestBody. 
+        If an `ID` field is provided, it will use this rather than generating a new UUID.
+      tags:
+        - respondents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  $ref: '#/components/schemas/RespondentDetails'
+                enrolmentCodes:
+                  type: array
+                  items:
+                    type: string
+                    example: g023at6a
+                    minItems: 1
+      responses:
+        '201':
+          description: The respondent was created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RespondentDetails'
+        '400':
+          description: A required field (attributes or enrolment code) wasn't provided or was in an incorrect format.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: A provided enrolment code couldn't be found.
+        '422':
+          description: A provided enrolment code has expired or the business associated with an enrolment code couldn't be associated with.
   /respondents/{id}:
     delete:
       summary: Deletes a respondent from the service.
-      description: Unenrols a respondent from all surveys then deletes their enrolment history, business associations, pending enrolments and their representation in the service. Will not delete their account from the auth service.
+      description: | 
+        Unenrols a respondent from all surveys then deletes their enrolment history, business associations, pending enrolments and their representation in the service. 
+        Will not delete their account from the auth service.
       tags:
         - respondents
       parameters:
@@ -155,7 +202,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RespondentDetails'
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/RespondentDetails'
         '400':
           $ref: '#/components/responses/MalformedIDError'
         '401':
@@ -184,14 +234,28 @@ paths:
         content:
           application/json:
             schema:
-                $ref: '#/components/schemas/RespondentDetails'
+              type: object
+              properties:
+                data:
+                  $ref: '#/components/schemas/RespondentDetails'
+                enrolmentCodes:
+                  type: array
+                  items:
+                    type: string
+                    example: g023at6a
+                    minItems: 0
       responses:
         '200':
           description: The respondent was successfully updated.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RespondentDetails'
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RespondentDetails'
         '400':
           description: One or more of the fields provided in the RequestBody wasn't part of the schema, wasn't set to a valid value, or the ID provided wasn't a proper UUID.
         '401':
