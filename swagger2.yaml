@@ -192,6 +192,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RespondentDetails'
+        '400':
+          description: One or more of the fields provided in the RequestBody wasn't part of the schema, wasn't set to a valid value, or the ID provided wasn't a proper UUID.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: The respondent wasn't found or one of the associated entities wasn't found by its ID.
+        '409':
+          description: The `emailAddress` provided is already in use for a different respondent.
+        '422':
+          description: Part or all of the update failed, and the action has been rolled back.
 components:
   securitySchemes:
     basicAuth:
