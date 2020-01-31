@@ -168,7 +168,7 @@ paths:
         Updates all of the fields specified in the RequestBody for the respondent. 
         This is an atomic operation i.e. if one field can't be updated for whatever reason, none of them will be. 
         Associations will be created if they don't already exist, else they will be updated.
-        `ID` is a valid field in the RequestBody, but will not be updated if changed.
+        `ID` is a valid field in the RequestBody, but shouldn't be changed and a `400 Bad Request` will returned if changing it is attempted.
       tags:
         - respondents
       parameters:
