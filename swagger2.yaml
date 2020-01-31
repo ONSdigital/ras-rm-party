@@ -219,6 +219,7 @@ paths:
         This is an atomic operation i.e. if one field can't be updated for whatever reason, none of them will be. 
         Associations will be created if they don't already exist, else they will be updated.
         `ID` is a valid field in the RequestBody, but shouldn't be changed and a `400 Bad Request` will returned if changing it is attempted.
+        The respondent will be enrolled on any surveys associated to any provided `enrolmentCodes`.
       tags:
         - respondents
       parameters:
@@ -261,11 +262,11 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '404':
-          description: The respondent wasn't found or one of the associated entities wasn't found by its ID.
+          description: The respondent wasn't found, one of the associated entities wasn't found by its ID or one of the provided enrolment codes wasn't found.
         '409':
-          description: The `emailAddress` provided is already in use for a different respondent.
+          description: The `emailAddress` provided is already in use for a different respondent or the respondent is already enrolled on a survey attached to a provided enrolment code.
         '422':
-          description: Part or all of the update failed, and the action has been rolled back.
+          description: Part or all of the update failed, and the action has been rolled back. No enrolments have been generated.
 components:
   securitySchemes:
     basicAuth:
