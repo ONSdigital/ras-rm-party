@@ -258,7 +258,7 @@ paths:
                     items:
                       $ref: '#/components/schemas/RespondentDetails'
         '400':
-          description: One or more of the fields provided in the RequestBody wasn't part of the schema, wasn't set to a valid value, or the ID provided wasn't a proper UUID.
+          $ref: '#/components/responses/InvalidRequestBodyError'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '404':
@@ -344,6 +344,52 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         '404':
           $ref: '#/components/responses/BusinessNotFoundError'
+    patch:
+      summary: Updates the specified fields on the business.
+      description: | 
+        Updates all of the fields specified in the RequestBody for the business. 
+        This is an atomic operation i.e. if one field can't be updated for whatever reason, none of them will be. 
+        Associations will be created if they don't already exist, else they will be updated.
+        `ID` is a valid field in the RequestBody, but shouldn't be changed and a `400 Bad Request` will returned if changing it is attempted.
+      tags:
+        - businesses
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: 4686d17c-ee38-4880-8b1f-b3ee8e1bfc4d
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  $ref: '#/components/schemas/BusinessDetails'
+      responses:
+        '200':
+          description: The respondent was successfully updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BusinessDetails'
+        '400':
+          $ref: '#/components/responses/InvalidRequestBodyError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: The business wasn't found, one of the associated entities wasn't found by its ID or one of the provided enrolment codes wasn't found.
+        '422':
+          description: Part or all of the update failed, and the action has been rolled back.
 components:
   securitySchemes:
     basicAuth:
@@ -380,6 +426,8 @@ components:
                 example: Business does not exist
     QueryParametersMissingError:
       description: No query parameters were provided.
+    InvalidRequestBodyError:
+      description: One or more of the fields provided in the RequestBody wasn't part of the schema, wasn't set to a valid value, or the ID provided wasn't a proper UUID.
   schemas:
     RespondentDetails:
       type: object
