@@ -314,6 +314,38 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         '404':
           description: No businesses were found based on the parameters provided.
+    post:
+      summary: Creates a new business.
+      description: | 
+        Creates a new business from the data in the RequestBody. 
+        If an `ID` field is provided, it will use this rather than generating a new UUID.
+      tags:
+        - businesses
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  $ref: '#/components/schemas/BusinessDetails'
+      responses:
+        '201':
+          description: The business was created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BusinessDetails'
+        '400':
+          description: A required field wasn't provided or was in an incorrect format.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
   /businesses/{id}:
     get:
       summary: Retrieves information on a business.
