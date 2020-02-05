@@ -100,7 +100,7 @@ paths:
             type: number
       responses:
         '200':
-          description: The respondent was retrieved successfully.
+          description: Respondent(s) were retrieved successfully.
           content:
             application/json:
               schema:
@@ -111,7 +111,7 @@ paths:
                     items:
                       $ref: '#/components/schemas/RespondentDetails'
         '400':
-          description: No query parameters were provided.
+          $ref: '#/components/responses/QueryParametersMissingError'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '404':
@@ -267,6 +267,53 @@ paths:
           description: The `emailAddress` provided is already in use for a different respondent or the respondent is already enrolled on a survey attached to a provided enrolment code.
         '422':
           description: Part or all of the update failed, and the action has been rolled back. No enrolments have been generated.
+  /businesses:
+    get:
+      summary: Searches for a business based on provided keyword.
+      description: Finds businesses based on information in the query, matching on the business name, trading as or business reference. Search is an AND (ie results must match all query strings) with `page` and `limit` pagination.
+      tags:
+        - businesses
+      parameters:
+        - in: query
+          name: keyword
+          required: true
+          schema:
+            type: string
+            example: "Ltd"
+          style: form
+          explode: true
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: number
+            format: integer
+            default: 1
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: number
+            format: integer
+            default: 10
+      responses:
+        '200':
+          description: Business(es) were successfully retrieved.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BusinessDetails'
+        '400':
+          $ref: '#/components/responses/QueryParametersMissingError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: No businesses were found based on the parameters provided.
   /businesses/{id}:
     get:
       summary: Retrieves information on a business.
@@ -290,9 +337,7 @@ paths:
                 type: object
                 properties:
                   data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/BusinessDetails'
+                    $ref: '#/components/schemas/BusinessDetails'
         '400':
           $ref: '#/components/responses/MalformedIDError'
         '401':
@@ -333,6 +378,8 @@ components:
               description:
                 type: string
                 example: Business does not exist
+    QueryParametersMissingError:
+      description: No query parameters were provided.
   schemas:
     RespondentDetails:
       type: object
