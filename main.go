@@ -10,7 +10,7 @@ import (
 )
 
 func hello(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	if unleash.IsEnabled("party.api.get.hello") {
+	if unleash.IsEnabled("party.api.get.hello", unleash.WithFallback(true)) {
 		fmt.Fprint(w, "ras-rm-party")
 	} else {
 		w.WriteHeader(http.StatusMethodNotAllowed)
