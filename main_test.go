@@ -32,7 +32,7 @@ func setup() {
 
 func TestHello(t *testing.T) {
 	setup()
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/v2/", nil)
 	router.ServeHTTP(resp, req)
 	body, _ := ioutil.ReadAll(resp.Body)
 

@@ -23,13 +23,13 @@ func hello(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 }
 
 func addRoutes(r *httprouter.Router) {
-	r.GET("/", hello)
+	r.GET("/v2/", hello)
 }
 
 func startServer(r http.Handler) *http.Server {
 	srv := &http.Server{
 		Handler: r,
-		Addr:    ":6969/v2/",
+		Addr:    ":6969",
 	}
 
 	go func() {
