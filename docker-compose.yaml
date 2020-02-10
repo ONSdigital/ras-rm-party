@@ -1,0 +1,8 @@
+version: "3.7"
+services:  
+  ras-rm-party:
+    container_name: ras-rm-party
+    build: .
+    ports:
+      - "6969:6969"
+    restart: always
