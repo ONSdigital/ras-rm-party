@@ -17,6 +17,7 @@ var resp *httptest.ResponseRecorder
 var unleashStub *fakeUnleashServer
 
 func setup() {
+	setDefaults()
 	router = httprouter.New()
 	addRoutes(router)
 	resp = httptest.NewRecorder()

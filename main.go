@@ -48,10 +48,6 @@ func main() {
 	viper.AutomaticEnv()
 	setDefaults()
 
-	log.Println(viper.GetString("service_name"))
-	log.Println(viper.GetString("listen_port"))
-	log.Println(viper.GetString("service_name"))
-
 	unleash.Initialize(unleash.WithListener(&unleash.DebugListener{}),
 		unleash.WithAppName(viper.GetString("service_name")),
 		unleash.WithUrl(viper.GetString("unleash_path")))
