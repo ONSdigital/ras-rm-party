@@ -10,13 +10,14 @@ import (
 
 	"github.com/Unleash/unleash-client-go/v3"
 	"github.com/julienschmidt/httprouter"
+	"github.com/spf13/viper"
 )
 
 var wg sync.WaitGroup
 
 func hello(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	if unleash.IsEnabled("party.api.get.hello", unleash.WithFallback(true)) {
-		fmt.Fprint(w, "ras-rm-party")
+		fmt.Fprint(w, viper.GetString("service_name"))
 	} else {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
@@ -29,7 +30,7 @@ func addRoutes(r *httprouter.Router) {
 func startServer(r http.Handler) *http.Server {
 	srv := &http.Server{
 		Handler: r,
-		Addr:    ":6969",
+		Addr:    ":" + viper.GetString("listen_port"),
 	}
 
 	go func() {
@@ -44,9 +45,12 @@ func startServer(r http.Handler) *http.Server {
 }
 
 func main() {
+	viper.AutomaticEnv()
+	setDefaults()
+
 	unleash.Initialize(unleash.WithListener(&unleash.DebugListener{}),
-		unleash.WithAppName("ras-rm-party"),
-		unleash.WithUrl("http://localhost:4242/api"))
+		unleash.WithAppName(viper.GetString("service_name")),
+		unleash.WithUrl(viper.GetString("unleash_path")))
 	router := httprouter.New()
 	addRoutes(router)
 
