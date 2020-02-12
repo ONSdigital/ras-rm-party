@@ -17,7 +17,7 @@ var wg sync.WaitGroup
 
 func hello(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	if unleash.IsEnabled("party.api.get.hello", unleash.WithFallback(true)) {
-		fmt.Fprint(w, "ras-rm-party")
+		fmt.Fprint(w, viper.GetString("service_name"))
 	} else {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
@@ -47,6 +47,10 @@ func startServer(r http.Handler) *http.Server {
 func main() {
 	viper.AutomaticEnv()
 	setDefaults()
+
+	log.Println(viper.GetString("service_name"))
+	log.Println(viper.GetString("listen_port"))
+	log.Println(viper.GetString("service_name"))
 
 	unleash.Initialize(unleash.WithListener(&unleash.DebugListener{}),
 		unleash.WithAppName(viper.GetString("service_name")),
