@@ -1,6 +1,6 @@
 {
  "cloudProviders": "kubernetes",
- "email": "warren@warrenbailey.net",
+ "email": "matthew.crocker@ons.gov.uk",
  "instancePort": 80,
  "name": "partyv2"
 }
