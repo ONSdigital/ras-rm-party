@@ -116,7 +116,7 @@ spec:
           - name: ZIPKIN_SAMPLE_RATE
             value: "100"
           - name: UNLEASH_URI
-            value: "http://${UNLEASH_SERVICE_HOST}:${UNLEASH_SERVICE_PORT}/api"
+            value: "http://$(UNLEASH_SERVICE_HOST):$(UNLEASH_SERVICE_PORT)/api"
           - name: SERVICE_NAME
             value: ras-rm-party
           resources:
