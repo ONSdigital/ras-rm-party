@@ -50,7 +50,7 @@ func main() {
 
 	unleash.Initialize(unleash.WithListener(&unleash.DebugListener{}),
 		unleash.WithAppName(viper.GetString("service_name")),
-		unleash.WithUrl(viper.GetString("unleash_path")))
+		unleash.WithUrl(viper.GetString("unleash_uri")))
 	router := httprouter.New()
 	addRoutes(router)
 
