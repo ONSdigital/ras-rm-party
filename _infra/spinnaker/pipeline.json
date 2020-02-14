@@ -1,0 +1,21 @@
+{
+  "schema": "v2",
+  "application": "partyv2",
+  "name": "partyv2",
+  "template": {
+    "artifactAccount": "front50ArtifactCredentials",
+    "reference": "spinnaker://rasrmApplicationTemplate",
+    "type": "front50/pipelineTemplate"
+  },
+  "variables": {
+    "name": "partyv2",
+    "defaultHelmChart": "partyv2-0.1.0.tgz",
+    "helmChartMatcher": "partyv2-.*\\.tgz"
+  },
+  "exclude": [],
+  "triggers": [],
+  "parameters": [],
+  "notifications": [],
+  "description": "",
+  "stages": []
+}
