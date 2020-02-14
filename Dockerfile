@@ -8,6 +8,4 @@ EXPOSE 8059
 
 COPY build/linux-amd64/bin/main /usr/local/bin/
 
-COPY db-migrations /db-migrations
-
 ENTRYPOINT [ "/usr/local/bin/main" ]
