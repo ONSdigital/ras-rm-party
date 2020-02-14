@@ -30,7 +30,7 @@ func addRoutes(r *httprouter.Router) {
 func startServer(r http.Handler) *http.Server {
 	srv := &http.Server{
 		Handler: r,
-		Addr:    ":" + viper.GetString("listen_port"),
+		Addr:    ":" + viper.GetString("port"),
 	}
 
 	go func() {

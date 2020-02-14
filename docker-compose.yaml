@@ -4,5 +4,5 @@ services:
     container_name: ras-rm-party
     build: .
     ports:
-      - "6969:6969"
+      - "8059:8059"
     restart: always

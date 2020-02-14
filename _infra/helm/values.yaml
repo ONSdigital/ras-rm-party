@@ -1,0 +1,10 @@
+replicaCount: 1
+
+env: "minikube"
+
+service:
+  port: 8059
+
+resources:
+  requests:
+    memory: "128Mi"
