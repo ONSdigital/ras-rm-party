@@ -9,15 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ONSdigital/ras-rm-party/models"
 	"github.com/Unleash/unleash-client-go/v3"
-
 	"github.com/julienschmidt/httprouter"
 )
-
-type infoRet struct {
-	Name    string
-	Version string
-}
 
 var router *httprouter.Router
 var resp *httptest.ResponseRecorder
@@ -69,7 +64,7 @@ func TestInfo(t *testing.T) {
 		t.Fatal("Status code mismatch on 'GET /info', expected ", http.StatusOK, " got ", resp.Code)
 	}
 
-	var infoResp infoRet
+	var infoResp models.Info
 	err := json.Unmarshal(body, &infoResp)
 	if err != nil {
 		t.Fatal("Error decoding JSON response from 'GET /info', ", err.Error())
