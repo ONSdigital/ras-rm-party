@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/ONSdigital/ras-rm-party/models"
 	"github.com/Unleash/unleash-client-go/v3"
 	"github.com/julienschmidt/httprouter"
 	"github.com/spf13/viper"
@@ -23,8 +25,22 @@ func hello(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	}
 }
 
+func info(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	if unleash.IsEnabled("party.api.get.info", unleash.WithFallback(false)) {
+		info := models.Info{
+			Name:    viper.GetString("service_name"),
+			Version: "0.1.0",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(info)
+	} else {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
 func addRoutes(r *httprouter.Router) {
 	r.GET("/v2/", hello)
+	r.GET("/v2/info", info)
 }
 
 func startServer(r http.Handler) *http.Server {
