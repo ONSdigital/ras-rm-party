@@ -23,8 +23,17 @@ func hello(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	}
 }
 
+func info(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	if unleash.IsEnabled("party.api.get.info", unleash.WithFallback(false)) {
+		//
+	} else {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
 func addRoutes(r *httprouter.Router) {
 	r.GET("/v2/", hello)
+	r.GET("/v2/info", info)
 }
 
 func startServer(r http.Handler) *http.Server {
