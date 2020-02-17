@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -11,6 +12,11 @@ import (
 
 	"github.com/julienschmidt/httprouter"
 )
+
+type info struct {
+	Name    string
+	Version string
+}
 
 var router *httprouter.Router
 var resp *httptest.ResponseRecorder
@@ -43,5 +49,28 @@ func TestHello(t *testing.T) {
 
 	if string(body) != "ras-rm-party" {
 		t.Fatal("Body mismatch on 'GET /', expected ras-rm-party got ", body)
+	}
+}
+
+func TestInfo(t *testing.T) {
+	setup()
+	unleashStub.Enable("party.api.get.info")
+
+	req := httptest.NewRequest("GET", "/v2/info", nil)
+	router.ServeHTTP(resp, req)
+	body, _ := ioutil.ReadAll(resp.Body)
+
+	if resp.Code != http.StatusOK {
+		t.Fatal("Status code mismatch on 'GET /info', expected ", http.StatusOK, " got ", resp.Code)
+	}
+
+	var info info
+	err := json.Unmarshal(body, &info)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /info', ", err.Error())
+	}
+
+	if info.Name != "ras-rm-party" {
+		t.Fatal("Name field received from 'GET /info' incorrect, expected ras-rm-party got ", info.Name)
 	}
 }
