@@ -35,8 +35,16 @@ func setup() {
 	addRoutes(router)
 }
 
+func turnFeatureOn(feature string) {
+	unleashStub.Enable(feature)
+	// Required to let the unleash stub poll for new settings
+	time.Sleep(time.Millisecond * 1500)
+}
+
 func TestHello(t *testing.T) {
 	setup()
+	turnFeatureOn("party.api.get.hello")
+
 	req := httptest.NewRequest("GET", "/v2/", nil)
 	router.ServeHTTP(resp, req)
 	body, _ := ioutil.ReadAll(resp.Body)
@@ -52,9 +60,6 @@ func TestHello(t *testing.T) {
 
 func TestInfo(t *testing.T) {
 	setup()
-	unleashStub.Enable("party.api.get.info")
-	// Required to let the unleash stub poll for new settings
-	time.Sleep(time.Millisecond * 1500)
 
 	req := httptest.NewRequest("GET", "/v2/info/", nil)
 	router.ServeHTTP(resp, req)

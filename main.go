@@ -18,7 +18,7 @@ import (
 var wg sync.WaitGroup
 
 func hello(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	if unleash.IsEnabled("party.api.get.hello", unleash.WithFallback(true)) {
+	if unleash.IsEnabled("party.api.get.hello", unleash.WithFallback(false)) {
 		fmt.Fprint(w, viper.GetString("service_name"))
 	} else {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -26,16 +26,12 @@ func hello(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 }
 
 func info(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	if unleash.IsEnabled("party.api.get.info", unleash.WithFallback(false)) {
-		info := models.Info{
-			Name:    viper.GetString("service_name"),
-			Version: viper.GetString("app_version"),
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(info)
-	} else {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+	info := models.Info{
+		Name:    viper.GetString("service_name"),
+		Version: viper.GetString("app_version"),
 	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(info)
 }
 
 func addRoutes(r *httprouter.Router) {
