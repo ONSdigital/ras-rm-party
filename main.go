@@ -15,7 +15,8 @@ import (
 var wg sync.WaitGroup
 
 func addRoutes(r *httprouter.Router) {
-	r.GET("/v2/info/", info)
+	r.GET("/v2/info/", getInfo)
+	r.GET("/v2/respondents/", getRespondents)
 }
 
 func startServer(r http.Handler, wg *sync.WaitGroup) *http.Server {

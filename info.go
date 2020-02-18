@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func info(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func getInfo(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	info := models.Info{
 		Name:    viper.GetString("service_name"),
 		Version: viper.GetString("app_version"),
