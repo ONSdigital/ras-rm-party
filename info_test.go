@@ -16,7 +16,7 @@ func TestInfo(t *testing.T) {
 	setDefaults()
 	setup()
 
-	req := httptest.NewRequest("GET", "/v2/info/", nil)
+	req := httptest.NewRequest("GET", "/v2/info", nil)
 	router.ServeHTTP(resp, req)
 	body, _ := ioutil.ReadAll(resp.Body)
 
