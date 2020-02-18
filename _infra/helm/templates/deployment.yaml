@@ -119,5 +119,7 @@ spec:
             value: "http://$(UNLEASH_SERVICE_HOST):$(UNLEASH_SERVICE_PORT)/api"
           - name: SERVICE_NAME
             value: ras-rm-party
+          - name: APP_VERSION
+            value: {{ .Chart.AppVersion }}
           resources:
             {{ toYaml .Values.resources | nindent 12 }}
