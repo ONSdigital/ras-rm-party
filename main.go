@@ -2,44 +2,28 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
+	"database/sql"
 	"log"
 	"net/http"
 	"sync"
 	"time"
 
-	"github.com/ONSdigital/ras-rm-party/models"
 	"github.com/Unleash/unleash-client-go/v3"
 	"github.com/julienschmidt/httprouter"
 	"github.com/spf13/viper"
+
+	_ "github.com/lib/pq"
 )
 
 var wg sync.WaitGroup
-
-func hello(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	if unleash.IsEnabled("party.api.get.hello", unleash.WithFallback(false)) {
-		fmt.Fprint(w, viper.GetString("service_name"))
-	} else {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-	}
-}
-
-func info(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	info := models.Info{
-		Name:    viper.GetString("service_name"),
-		Version: viper.GetString("app_version"),
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(info)
-}
+var db *sql.DB
 
 func addRoutes(r *httprouter.Router) {
-	r.GET("/v2/", hello)
-	r.GET("/v2/info/", info)
+	r.GET("/v2/info", getInfo)
+	r.GET("/v2/respondents", getRespondents)
 }
 
-func startServer(r http.Handler) *http.Server {
+func startServer(r http.Handler, wg *sync.WaitGroup) *http.Server {
 	srv := &http.Server{
 		Handler: r,
 		Addr:    ":" + viper.GetString("port"),
@@ -49,25 +33,46 @@ func startServer(r http.Handler) *http.Server {
 		defer wg.Done()
 
 		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-			log.Fatal("Panic running Party service API: ", err.Error())
+			log.Fatal("Panic running Party service API:", err.Error())
 		}
 	}()
 
 	return srv
 }
 
+func connectToDB() (*sql.DB, error) {
+	db, err := sql.Open("postgres", viper.GetString("database_uri"))
+	if err != nil {
+		return nil, err
+	}
+	if err = db.Ping(); err != nil {
+		return nil, err
+	}
+	return db, nil
+}
+
 func main() {
+	// Config
 	viper.AutomaticEnv()
 	setDefaults()
 
+	// Feature flagging
 	unleash.Initialize(unleash.WithListener(&unleash.DebugListener{}),
 		unleash.WithAppName(viper.GetString("service_name")),
 		unleash.WithUrl(viper.GetString("unleash_uri")))
+
+	// Connect to DB
+	var err error
+	if db, err = connectToDB(); err != nil {
+		log.Fatal("Error connecting to Postgres:", err.Error())
+	}
+
+	// Start serving HTTP
 	router := httprouter.New()
 	addRoutes(router)
 
 	wg.Add(1)
-	srv := startServer(router)
+	srv := startServer(router, &wg)
 	wg.Wait()
 
 	log.Println("Shutting down Party service...")
@@ -75,7 +80,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
-	if err := srv.Shutdown(ctx); err != nil {
+	if err = srv.Shutdown(ctx); err != nil {
 		log.Fatal(err)
 	}
 }
