@@ -30,7 +30,7 @@ func setup() {
 		unleash.WithRefreshInterval(time.Second*1))
 
 	if err != nil {
-		log.Fatal("Couldn't start an Unleash stub: ", err)
+		log.Fatal("Couldn't start an Unleash stub:", err)
 	}
 
 	addRoutes(router)

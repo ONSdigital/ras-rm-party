@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"log"
 	"net/http"
 	"sync"
@@ -13,6 +14,7 @@ import (
 )
 
 var wg sync.WaitGroup
+var db *sql.DB
 
 func addRoutes(r *httprouter.Router) {
 	r.GET("/v2/info/", getInfo)
@@ -29,7 +31,7 @@ func startServer(r http.Handler, wg *sync.WaitGroup) *http.Server {
 		defer wg.Done()
 
 		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-			log.Fatal("Panic running Party service API: ", err.Error())
+			log.Fatal("Panic running Party service API:", err.Error())
 		}
 	}()
 
