@@ -29,7 +29,7 @@ func info(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	if unleash.IsEnabled("party.api.get.info", unleash.WithFallback(false)) {
 		info := models.Info{
 			Name:    viper.GetString("service_name"),
-			Version: "0.1.0",
+			Version: viper.GetString("app_version"),
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(info)
