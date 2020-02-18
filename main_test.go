@@ -56,7 +56,7 @@ func TestInfo(t *testing.T) {
 	// Required to let the unleash stub poll for new settings
 	time.Sleep(time.Millisecond * 1500)
 
-	req := httptest.NewRequest("GET", "/v2/info", nil)
+	req := httptest.NewRequest("GET", "/v2/info/", nil)
 	router.ServeHTTP(resp, req)
 	body, _ := ioutil.ReadAll(resp.Body)
 

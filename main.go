@@ -40,7 +40,7 @@ func info(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 func addRoutes(r *httprouter.Router) {
 	r.GET("/v2/", hello)
-	r.GET("/v2/info", info)
+	r.GET("/v2/info/", info)
 }
 
 func startServer(r http.Handler) *http.Server {
