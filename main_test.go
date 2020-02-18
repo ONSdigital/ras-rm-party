@@ -1,22 +1,23 @@
 package main
 
 import (
-	"encoding/json"
-	"io/ioutil"
 	"log"
-	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
-	"github.com/ONSdigital/ras-rm-party/models"
 	"github.com/Unleash/unleash-client-go/v3"
 	"github.com/julienschmidt/httprouter"
+	"github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
 )
 
 var router *httprouter.Router
 var resp *httptest.ResponseRecorder
 var unleashStub *fakeUnleashServer
+
+var testWg sync.WaitGroup
 
 func setup() {
 	setDefaults()
@@ -41,41 +42,11 @@ func turnFeatureOn(feature string) {
 	time.Sleep(time.Millisecond * 1500)
 }
 
-func TestHello(t *testing.T) {
-	setup()
-	turnFeatureOn("party.api.get.hello")
-
-	req := httptest.NewRequest("GET", "/v2/", nil)
-	router.ServeHTTP(resp, req)
-	body, _ := ioutil.ReadAll(resp.Body)
-
-	if resp.Code != http.StatusOK {
-		t.Fatal("Status code mismatch on 'GET /', expected ", http.StatusOK, " got ", resp.Code)
-	}
-
-	if string(body) != "ras-rm-party" {
-		t.Fatal("Body mismatch on 'GET /', expected ras-rm-party got ", body)
-	}
-}
-
-func TestInfo(t *testing.T) {
-	setup()
-
-	req := httptest.NewRequest("GET", "/v2/info/", nil)
-	router.ServeHTTP(resp, req)
-	body, _ := ioutil.ReadAll(resp.Body)
-
-	if resp.Code != http.StatusOK {
-		t.Fatal("Status code mismatch on 'GET /info', expected ", http.StatusOK, " got ", resp.Code)
-	}
-
-	var infoResp models.Info
-	err := json.Unmarshal(body, &infoResp)
-	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /info', ", err.Error())
-	}
-
-	if infoResp.Name != "ras-rm-party" {
-		t.Fatal("Name field received from 'GET /info' incorrect, expected ras-rm-party got ", infoResp.Name)
-	}
+func TestStartServer(t *testing.T) {
+	setDefaults()
+	router := httprouter.New()
+	testWg.Add(1)
+	srv := startServer(router, &testWg)
+	assert.Equal(t, ":"+viper.GetString("port"), srv.Addr)
+	srv.Close()
 }

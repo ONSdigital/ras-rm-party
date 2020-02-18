@@ -2,14 +2,11 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"sync"
 	"time"
 
-	"github.com/ONSdigital/ras-rm-party/models"
 	"github.com/Unleash/unleash-client-go/v3"
 	"github.com/julienschmidt/httprouter"
 	"github.com/spf13/viper"
@@ -17,29 +14,11 @@ import (
 
 var wg sync.WaitGroup
 
-func hello(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	if unleash.IsEnabled("party.api.get.hello", unleash.WithFallback(false)) {
-		fmt.Fprint(w, viper.GetString("service_name"))
-	} else {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-	}
-}
-
-func info(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	info := models.Info{
-		Name:    viper.GetString("service_name"),
-		Version: viper.GetString("app_version"),
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(info)
-}
-
 func addRoutes(r *httprouter.Router) {
-	r.GET("/v2/", hello)
 	r.GET("/v2/info/", info)
 }
 
-func startServer(r http.Handler) *http.Server {
+func startServer(r http.Handler, wg *sync.WaitGroup) *http.Server {
 	srv := &http.Server{
 		Handler: r,
 		Addr:    ":" + viper.GetString("port"),
@@ -67,7 +46,7 @@ func main() {
 	addRoutes(router)
 
 	wg.Add(1)
-	srv := startServer(router)
+	srv := startServer(router, &wg)
 	wg.Wait()
 
 	log.Println("Shutting down Party service...")
