@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -68,13 +67,13 @@ func TestGetRespondentsReturns400WhenBadParamProvided(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, resp.Code)
 
-	var infoResp models.Error
-	err := json.Unmarshal(body, &infoResp)
+	var errResp models.Error
+	err := json.Unmarshal(body, &errResp)
 	if err != nil {
 		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
 	}
 
-	assert.Equal(t, "Invalid query parameter nonsense", infoResp.Error)
+	assert.Equal(t, "Invalid query parameter nonsense", errResp.Error)
 }
 
 func TestGetRespondentsReturns404WhenDBNotInit(t *testing.T) {
@@ -92,10 +91,6 @@ func TestGetRespondentsReturns404WhenDBDown(t *testing.T) {
 	setup()
 	toggleFeature("party.api.get.respondents", true)
 
-	var logOutput bytes.Buffer
-
-	log.SetOutput(&logOutput)
-
 	var mock sqlmock.Sqlmock
 	var err error
 
@@ -108,7 +103,14 @@ func TestGetRespondentsReturns404WhenDBDown(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/v2/respondents?firstName=Bob", nil)
 	router.ServeHTTP(resp, req)
+	body, _ := ioutil.ReadAll(resp.Body)
+
+	var errResp models.Error
+	err = json.Unmarshal(body, &errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
 
 	assert.Equal(t, http.StatusNotFound, resp.Code)
-	assert.Contains(t, logOutput.String(), "Error querying DB: Connection refused")
+	assert.Equal(t, "Error querying DB: Connection refused", errResp.Error)
 }

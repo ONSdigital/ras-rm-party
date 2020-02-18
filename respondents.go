@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 
 	"github.com/ONSdigital/ras-rm-party/models"
@@ -37,6 +36,7 @@ func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 				Error: "Invalid query parameter " + k,
 			}
 			json.NewEncoder(w).Encode(errorString)
+			return
 		}
 	}
 
@@ -45,10 +45,12 @@ func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		return
 	}
 
-	_, err := db.Query("SELECT * from partysvc.respondent")
-	if err != nil {
+	if _, err := db.Query("SELECT * from partysvc.respondent"); err != nil {
 		w.WriteHeader(http.StatusNotFound)
-		log.Println("Error querying DB:", err.Error())
+		errorString := models.Error{
+			Error: "Error querying DB: " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(errorString)
 		return
 	}
 
