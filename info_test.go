@@ -30,3 +30,14 @@ func TestInfo(t *testing.T) {
 
 	assert.Equal(t, viper.GetString("service_name"), infoResp.Name)
 }
+
+func TestInfoReturns301WithTrailingBackslash(t *testing.T) {
+	setDefaults()
+	setup()
+
+	req := httptest.NewRequest("GET", "/v2/info/", nil)
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusMovedPermanently, resp.Code)
+	assert.Equal(t, "/v2/info", resp.HeaderMap.Get("Location"))
+}

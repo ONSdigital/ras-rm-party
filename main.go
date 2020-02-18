@@ -61,11 +61,13 @@ func main() {
 		unleash.WithAppName(viper.GetString("service_name")),
 		unleash.WithUrl(viper.GetString("unleash_uri")))
 
+	// Connect to DB
 	var err error
 	if db, err = connectToDB(); err != nil {
 		log.Fatal("Error connecting to Postgres:", err.Error())
 	}
 
+	// Start serving HTTP
 	router := httprouter.New()
 	addRoutes(router)
 
