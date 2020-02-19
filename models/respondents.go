@@ -1,19 +1,22 @@
 package models
 
 type (
-	enrolment struct {
+	// Enrolment respresents a single survey enrolment for the respondent
+	Enrolment struct {
 		EnrolmentStatus string `json:"enrolmentStatus"`
 		SurveyID        string `json:"surveyId"`
 	}
 
-	association struct {
-		Enrolments    []enrolment `json:"enrolments"`
+	// Association represents a single business associated to a respondent
+	Association struct {
+		Enrolments    []Enrolment `json:"enrolments"`
 		Name          string      `json:"name"`
 		ID            string      `json:"id"`
 		SampleUnitRef string      `json:"sampleUnitRef"`
 	}
 
-	attributes struct {
+	// Attributes represents the attributes of a single respondent
+	Attributes struct {
 		EmailAddress string `json:"emailAddress"`
 		ID           string `json:"id"`
 		FirstName    string `json:"firstName"`
@@ -21,14 +24,15 @@ type (
 		Telephone    string `json:"telephone"`
 	}
 
-	respondent struct {
-		Attributes   attributes    `json:"attributes"`
+	// Respondent respresents a single respondent
+	Respondent struct {
+		Attributes   Attributes    `json:"attributes"`
 		Status       string        `json:"status"`
-		Associations []association `json:"associations"`
+		Associations []Association `json:"associations"`
 	}
 
 	// Respondents represents the response from all non-DELETE /respondents endpoints`
 	Respondents struct {
-		Data []respondent `json:"data"`
+		Data []Respondent `json:"data"`
 	}
 )

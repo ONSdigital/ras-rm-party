@@ -90,9 +90,11 @@ func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		sb.WriteString(queryParams.Get("limit"))
 	}
 
-	queryString := "SELECT * from partysvc.respondent r JOIN partysvc.enrolment e ON r.id=e.respondent_id" + sb.String()
+	queryString := "SELECT r.id, r.email_address, r.first_name, r.last_name, r.telephone, r.status " +
+		"from partysvc.respondent r JOIN partysvc.enrolment e ON r.id=e.respondent_id" + sb.String()
 
-	if _, err := db.Query(queryString); err != nil {
+	rows, err := db.Query(queryString)
+	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		errorString := models.Error{
 			Error: "Error querying DB: " + err.Error(),
@@ -101,5 +103,29 @@ func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		return
 	}
 
-	w.WriteHeader(http.StatusNotImplemented)
+	respondents := models.Respondents{}
+	for rows.Next() {
+		respondent := models.Respondent{Attributes: models.Attributes{}}
+		rows.Scan(
+			&respondent.Attributes.ID,
+			&respondent.Attributes.EmailAddress,
+			&respondent.Attributes.FirstName,
+			&respondent.Attributes.LastName,
+			&respondent.Attributes.Telephone,
+			&respondent.Status,
+		)
+		respondents.Data = append(respondents.Data, respondent)
+	}
+
+	if len(respondents.Data) == 0 {
+		w.WriteHeader(http.StatusNotFound)
+		errorString := models.Error{
+			Error: "No respondents found",
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(respondents)
 }
