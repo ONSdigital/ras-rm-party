@@ -7,5 +7,5 @@ func setDefaults() {
 	viper.SetDefault("service_name", "ras-rm-party")
 	viper.SetDefault("port", "8059")
 	viper.SetDefault("app_version", "unknown")
-	viper.SetDefault("database_uri", "postgres://postgres:postgres@localhost:6432/postgres?sslmode=disable&current")
+	viper.SetDefault("database_uri", "postgres://postgres:postgres@localhost:6432/postgres?sslmode=disable")
 }
