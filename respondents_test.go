@@ -40,7 +40,8 @@ func TestGetRespondents(t *testing.T) {
 
 	fakeResult := []string{"id", "trading_as"}
 
-	mock.ExpectQuery("SELECT (.+) from partysvc.respondent").WillReturnRows(mock.NewRows(fakeResult).AddRow(1, "Fake Co Inc"))
+	mock.ExpectQuery("SELECT (.+) from partysvc.respondent r JOIN partysvc.enrolment e ON r.id=e.respondent_id WHERE 1=1 AND r.first_name='Bob'").
+		WillReturnRows(mock.NewRows(fakeResult).AddRow(1, "Fake Co Inc"))
 	req := httptest.NewRequest("GET", "/v2/respondents?firstName=Bob", nil)
 	router.ServeHTTP(resp, req)
 
