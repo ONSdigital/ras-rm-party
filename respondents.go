@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 
@@ -46,11 +47,17 @@ func rowsToRespondentsModel(rows *sql.Rows) models.Respondents {
 				}
 			}
 			if !found {
-				association.Enrolments = append(association.Enrolments, enrolment)
+				// Only add the enrolment if there actually is one
+				if enrolment.EnrolmentStatus != "" && enrolment.SurveyID != "" {
+					association.Enrolments = append(association.Enrolments, enrolment)
+				}
 				val.Associations = append(val.Associations, association)
 			}
 		} else {
-			association.Enrolments = append(association.Enrolments, enrolment)
+			// Only add the enrolment if there actually is one
+			if enrolment.EnrolmentStatus != "" && enrolment.SurveyID != "" {
+				association.Enrolments = append(association.Enrolments, enrolment)
+			}
 			respondent.Associations = append(respondent.Associations, association)
 			respMap[respondent.Attributes.ID] = &respondent
 		}
@@ -114,7 +121,7 @@ func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 			sb.WriteString(queryParams.Get("status"))
 			sb.WriteString("'")
 		case "businessId":
-			sb.WriteString(" AND e.business_id='")
+			sb.WriteString(" AND br.business_id='")
 			sb.WriteString(queryParams.Get("businessId"))
 			sb.WriteString("'")
 		case "surveyId":
@@ -143,8 +150,9 @@ func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		sb.WriteString(queryParams.Get("limit"))
 	}
 
-	queryString := "SELECT r.id, r.email_address, r.first_name, r.last_name, r.telephone, r.status, e.business_id, e.status AS enrolment_status, e.survey_id " +
-		"from partysvc.respondent r JOIN partysvc.enrolment e ON r.id=e.respondent_id" + sb.String()
+	queryString := "SELECT r.id, r.email_address, r.first_name, r.last_name, r.telephone, r.status, br.business_id, e.status AS enrolment_status, e.survey_id " +
+		"FROM partysvc.respondent JOIN partysvc.business_respondent br ON r.id=br.respondent_id " +
+		"JOIN partysvc.enrolment e ON br.business_id=e.business_id AND br.respondent_id=e.respondent_id" + sb.String()
 
 	rows, err := db.Query(queryString)
 	if err != nil {
@@ -152,6 +160,7 @@ func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		errorString := models.Error{
 			Error: "Error querying DB: " + err.Error(),
 		}
+		log.Println(err.Error())
 		json.NewEncoder(w).Encode(errorString)
 		return
 	}
