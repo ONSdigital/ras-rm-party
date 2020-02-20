@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -9,6 +10,42 @@ import (
 	"github.com/Unleash/unleash-client-go/v3"
 	"github.com/julienschmidt/httprouter"
 )
+
+func rowsToRespondentsModel(rows *sql.Rows) models.Respondents {
+	respMap := make(map[string]*models.Respondent)
+	respondents := models.Respondents{}
+	for rows.Next() {
+		respondent := models.Respondent{
+			Attributes:   models.Attributes{},
+			Associations: []models.Association{},
+		}
+		association := models.Association{Enrolments: []models.Enrolment{}}
+
+		rows.Scan(
+			&respondent.Attributes.ID,
+			&respondent.Attributes.EmailAddress,
+			&respondent.Attributes.FirstName,
+			&respondent.Attributes.LastName,
+			&respondent.Attributes.Telephone,
+			&respondent.Status,
+			&association.ID,
+		)
+
+		// If we already have this respondent in the rowset, it's a new association
+		if val, ok := respMap[respondent.Attributes.ID]; ok {
+			val.Associations = append(val.Associations, association)
+		} else {
+			respondent.Associations = append(respondent.Associations, association)
+			respMap[respondent.Attributes.ID] = &respondent
+		}
+	}
+
+	for _, val := range respMap {
+		respondents.Data = append(respondents.Data, *val)
+	}
+
+	return respondents
+}
 
 func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	if !unleash.IsEnabled("party.api.get.respondents", unleash.WithFallback(false)) {
@@ -103,37 +140,7 @@ func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		return
 	}
 
-	respMap := make(map[string]*models.Respondent)
-	respondents := models.Respondents{}
-	for rows.Next() {
-		respondent := models.Respondent{
-			Attributes:   models.Attributes{},
-			Associations: []models.Association{},
-		}
-		association := models.Association{Enrolments: []models.Enrolment{}}
-
-		rows.Scan(
-			&respondent.Attributes.ID,
-			&respondent.Attributes.EmailAddress,
-			&respondent.Attributes.FirstName,
-			&respondent.Attributes.LastName,
-			&respondent.Attributes.Telephone,
-			&respondent.Status,
-			&association.ID,
-		)
-
-		// If we already have this respondent in the rowset, it's a new association
-		if val, ok := respMap[respondent.Attributes.ID]; ok {
-			val.Associations = append(val.Associations, association)
-		} else {
-			respondent.Associations = append(respondent.Associations, association)
-			respMap[respondent.Attributes.ID] = &respondent
-		}
-	}
-
-	for _, val := range respMap {
-		respondents.Data = append(respondents.Data, *val)
-	}
+	respondents := rowsToRespondentsModel(rows)
 
 	if len(respondents.Data) == 0 {
 		w.WriteHeader(http.StatusNotFound)
