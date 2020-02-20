@@ -16,6 +16,7 @@ import (
 var queryRegex = "SELECT (.+) FROM partysvc.respondent JOIN partysvc.business_respondent br ON r.id=br.respondent_id JOIN partysvc.enrolment e ON br.business_id=e.business_id AND br.respondent_id=e.respondent_id*"
 var columns = []string{"id", "email_address", "first_name", "last_name", "telephone", "status", "business_id", "enrolment_status", "survey_id"}
 
+// GET /respondents?...
 func TestGetRespondentsIsFeatureFlagged(t *testing.T) {
 	// Assure that it's properly feature flagged away
 	setDefaults()
@@ -187,4 +188,29 @@ func TestGetRespondentsReturns404WhenNoResults(t *testing.T) {
 
 	assert.Equal(t, http.StatusNotFound, resp.Code)
 	assert.Equal(t, "No respondents found", errResp.Error)
+}
+
+// POST /respondents
+func TestPostRespondentsIsFeatureFlagged(t *testing.T) {
+	// Assure that it's properly feature flagged away
+	setDefaults()
+	setup()
+	toggleFeature("party.api.post.respondents", false)
+
+	req := httptest.NewRequest("POST", "/v2/respondents", nil)
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusMethodNotAllowed, resp.Code)
+}
+
+func TestPostRespondents(t *testing.T) {
+	setup()
+	toggleFeature("party.api.post.respondents", true)
+
+	req := httptest.NewRequest("POST", "/v2/respondents", nil)
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusCreated, resp.Code)
 }

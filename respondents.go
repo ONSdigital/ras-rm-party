@@ -179,3 +179,13 @@ func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(respondents)
 }
+
+func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	if !unleash.IsEnabled("party.api.post.respondents", unleash.WithFallback(false)) {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	return
+}

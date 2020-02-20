@@ -31,8 +31,14 @@ type (
 		Associations []Association `json:"associations"`
 	}
 
-	// Respondents represents the response from all non-DELETE /respondents endpoints`
+	// Respondents represents the response from all non-DELETE /respondents endpoints
 	Respondents struct {
 		Data []Respondent `json:"data"`
+	}
+
+	// PostRespondents represents the expected format of a POST /respondents Request-Body
+	PostRespondents struct {
+		Data           Respondent `json:"data"`
+		EnrolmentCodes []string   `json:"enrolmentCodes"`
 	}
 )
