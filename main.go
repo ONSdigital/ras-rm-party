@@ -18,9 +18,22 @@ import (
 var wg sync.WaitGroup
 var db *sql.DB
 
+func auth(h httprouter.Handle, requiredUser, requiredPassword string) httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+		user, password, hasAuth := r.BasicAuth()
+
+		if hasAuth && user == requiredUser && password == requiredPassword {
+			h(w, r, ps)
+		} else {
+			w.Header().Set("WWW-Authenticate", "Basic realm=Restricted")
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+		}
+	}
+}
+
 func addRoutes(r *httprouter.Router) {
 	r.GET("/v2/info", getInfo)
-	r.GET("/v2/respondents", getRespondents)
+	r.GET("/v2/respondents", auth(getRespondents, viper.GetString("security_user_name"), viper.GetString("security_user_password")))
 }
 
 func startServer(r http.Handler, wg *sync.WaitGroup) *http.Server {

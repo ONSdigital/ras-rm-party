@@ -1,7 +1,9 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 
@@ -9,6 +11,64 @@ import (
 	"github.com/Unleash/unleash-client-go/v3"
 	"github.com/julienschmidt/httprouter"
 )
+
+func rowsToRespondentsModel(rows *sql.Rows) models.Respondents {
+	respMap := make(map[string]*models.Respondent)
+	respondents := models.Respondents{}
+	for rows.Next() {
+		respondent := models.Respondent{
+			Attributes:   models.Attributes{},
+			Associations: []models.Association{},
+		}
+		association := models.Association{Enrolments: []models.Enrolment{}}
+		enrolment := models.Enrolment{}
+
+		rows.Scan(
+			&respondent.Attributes.ID,
+			&respondent.Attributes.EmailAddress,
+			&respondent.Attributes.FirstName,
+			&respondent.Attributes.LastName,
+			&respondent.Attributes.Telephone,
+			&respondent.Status,
+			&association.ID,
+			&enrolment.SurveyID,
+			&enrolment.EnrolmentStatus,
+		)
+
+		// If we already have this respondent in the rowset, it's a new association or enrolment
+		if val, ok := respMap[respondent.Attributes.ID]; ok {
+			found := false
+			// If we already have this business association, it's a new enrolment for that association
+			for idx := range val.Associations {
+				if val.Associations[idx].ID == association.ID {
+					found = true
+					val.Associations[idx].Enrolments = append(val.Associations[idx].Enrolments, enrolment)
+					break
+				}
+			}
+			if !found {
+				// Only add the enrolment if there actually is one
+				if enrolment.EnrolmentStatus != "" && enrolment.SurveyID != "" {
+					association.Enrolments = append(association.Enrolments, enrolment)
+				}
+				val.Associations = append(val.Associations, association)
+			}
+		} else {
+			// Only add the enrolment if there actually is one
+			if enrolment.EnrolmentStatus != "" && enrolment.SurveyID != "" {
+				association.Enrolments = append(association.Enrolments, enrolment)
+			}
+			respondent.Associations = append(respondent.Associations, association)
+			respMap[respondent.Attributes.ID] = &respondent
+		}
+	}
+
+	for _, val := range respMap {
+		respondents.Data = append(respondents.Data, *val)
+	}
+
+	return respondents
+}
 
 func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	if !unleash.IsEnabled("party.api.get.respondents", unleash.WithFallback(false)) {
@@ -61,7 +121,7 @@ func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 			sb.WriteString(queryParams.Get("status"))
 			sb.WriteString("'")
 		case "businessId":
-			sb.WriteString(" AND e.business_id='")
+			sb.WriteString(" AND br.business_id='")
 			sb.WriteString(queryParams.Get("businessId"))
 			sb.WriteString("'")
 		case "surveyId":
@@ -90,8 +150,9 @@ func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		sb.WriteString(queryParams.Get("limit"))
 	}
 
-	queryString := "SELECT r.id, r.email_address, r.first_name, r.last_name, r.telephone, r.status " +
-		"from partysvc.respondent r JOIN partysvc.enrolment e ON r.id=e.respondent_id" + sb.String()
+	queryString := "SELECT r.id, r.email_address, r.first_name, r.last_name, r.telephone, r.status, br.business_id, e.status AS enrolment_status, e.survey_id " +
+		"FROM partysvc.respondent JOIN partysvc.business_respondent br ON r.id=br.respondent_id " +
+		"JOIN partysvc.enrolment e ON br.business_id=e.business_id AND br.respondent_id=e.respondent_id" + sb.String()
 
 	rows, err := db.Query(queryString)
 	if err != nil {
@@ -99,23 +160,12 @@ func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		errorString := models.Error{
 			Error: "Error querying DB: " + err.Error(),
 		}
+		log.Println(err.Error())
 		json.NewEncoder(w).Encode(errorString)
 		return
 	}
 
-	respondents := models.Respondents{}
-	for rows.Next() {
-		respondent := models.Respondent{Attributes: models.Attributes{}}
-		rows.Scan(
-			&respondent.Attributes.ID,
-			&respondent.Attributes.EmailAddress,
-			&respondent.Attributes.FirstName,
-			&respondent.Attributes.LastName,
-			&respondent.Attributes.Telephone,
-			&respondent.Status,
-		)
-		respondents.Data = append(respondents.Data, respondent)
-	}
+	respondents := rowsToRespondentsModel(rows)
 
 	if len(respondents.Data) == 0 {
 		w.WriteHeader(http.StatusNotFound)

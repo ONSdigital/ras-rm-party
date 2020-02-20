@@ -518,17 +518,10 @@ components:
                       type: string
                       format: uuid
                       example: 71323711-6518-49d5-9767-c42b9fb03639
-              name: 
-                type: string
-                example: Another Company Name PLC
               id: 
                 type: string
                 format: uuid
                 example: fd6a1aa3-ba17-43a8-beae-a39e67c6444d
-              sampleUnitRef:
-                type: string
-                format: uuid
-                example: 1ae6064d-da62-4337-9c7c-733d121015f9
     BusinessDetails:
       type: object
       properties:
