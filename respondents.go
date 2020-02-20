@@ -90,7 +90,7 @@ func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		sb.WriteString(queryParams.Get("limit"))
 	}
 
-	queryString := "SELECT r.id, r.email_address, r.first_name, r.last_name, r.telephone, r.status " +
+	queryString := "SELECT r.id, r.email_address, r.first_name, r.last_name, r.telephone, r.status, e.business_id " +
 		"from partysvc.respondent r JOIN partysvc.enrolment e ON r.id=e.respondent_id" + sb.String()
 
 	rows, err := db.Query(queryString)
@@ -103,9 +103,15 @@ func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		return
 	}
 
+	respMap := make(map[string]*models.Respondent)
 	respondents := models.Respondents{}
 	for rows.Next() {
-		respondent := models.Respondent{Attributes: models.Attributes{}}
+		respondent := models.Respondent{
+			Attributes:   models.Attributes{},
+			Associations: []models.Association{},
+		}
+		association := models.Association{Enrolments: []models.Enrolment{}}
+
 		rows.Scan(
 			&respondent.Attributes.ID,
 			&respondent.Attributes.EmailAddress,
@@ -113,8 +119,20 @@ func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 			&respondent.Attributes.LastName,
 			&respondent.Attributes.Telephone,
 			&respondent.Status,
+			&association.ID,
 		)
-		respondents.Data = append(respondents.Data, respondent)
+
+		// If we already have this respondent in the rowset, it's a new association
+		if val, ok := respMap[respondent.Attributes.ID]; ok {
+			val.Associations = append(val.Associations, association)
+		} else {
+			respondent.Associations = append(respondent.Associations, association)
+			respMap[respondent.Attributes.ID] = &respondent
+		}
+	}
+
+	for _, val := range respMap {
+		respondents.Data = append(respondents.Data, *val)
 	}
 
 	if len(respondents.Data) == 0 {
