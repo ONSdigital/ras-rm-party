@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
-	"log"
 	"net/http"
 	"strings"
 
@@ -160,7 +159,6 @@ func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		errorString := models.Error{
 			Error: "Error querying DB: " + err.Error(),
 		}
-		log.Println(err.Error())
 		json.NewEncoder(w).Encode(errorString)
 		return
 	}
@@ -183,6 +181,17 @@ func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	if !unleash.IsEnabled("party.api.post.respondents", unleash.WithFallback(false)) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	var postRequest models.PostRespondents
+	err := json.NewDecoder(r.Body).Decode(&postRequest)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		errorString := models.Error{
+			Error: "Invalid JSON",
+		}
+		json.NewEncoder(w).Encode(errorString)
 		return
 	}
 

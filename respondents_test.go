@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -207,10 +209,37 @@ func TestPostRespondentsIsFeatureFlagged(t *testing.T) {
 func TestPostRespondents(t *testing.T) {
 	setup()
 	toggleFeature("party.api.post.respondents", true)
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Status: "ACTIVE",
+		}}
 
-	req := httptest.NewRequest("POST", "/v2/respondents", nil)
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+	}
+
+	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
 	req.SetBasicAuth("admin", "secret")
 	router.ServeHTTP(resp, req)
 
 	assert.Equal(t, http.StatusCreated, resp.Code)
+}
+
+func TestPostRespondentsReturns400IfBadJSON(t *testing.T) {
+	setup()
+	toggleFeature("party.api.post.respondents", true)
+
+	req := httptest.NewRequest("POST", "/v2/respondents", strings.NewReader("{nonsense: true}"))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err := json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
+	assert.Equal(t, "Invalid JSON", errResp.Error)
 }
