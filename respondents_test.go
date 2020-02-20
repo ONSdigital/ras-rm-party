@@ -23,6 +23,7 @@ func TestGetRespondentsIsFeatureFlagged(t *testing.T) {
 	toggleFeature("party.api.get.respondents", false)
 
 	req := httptest.NewRequest("GET", "/v2/respondents", nil)
+	req.SetBasicAuth("admin", "secret")
 	router.ServeHTTP(resp, req)
 
 	assert.Equal(t, http.StatusMethodNotAllowed, resp.Code)
@@ -51,6 +52,7 @@ func TestGetRespondents(t *testing.T) {
 		"/v2/respondents?firstName=Bob&lastName=Boblaw&emailAddress=bob@boblaw.com&telephone=01234567890&status=ACTIVE"+
 			"&businessId=21ab28e5-28cc-4a53-8186-e19d6942002c&surveyId=0ee5265c-9cf3-4029-a07e-db1e1d94a499&offset=15&limit=10",
 		nil)
+	req.SetBasicAuth("admin", "secret")
 	router.ServeHTTP(resp, req)
 
 	var respondent models.Respondents
@@ -73,6 +75,7 @@ func TestGetRespondentsReturns400WhenNoParamsProvided(t *testing.T) {
 	toggleFeature("party.api.get.respondents", true)
 
 	req := httptest.NewRequest("GET", "/v2/respondents", nil)
+	req.SetBasicAuth("admin", "secret")
 	router.ServeHTTP(resp, req)
 
 	assert.Equal(t, http.StatusBadRequest, resp.Code)
@@ -83,6 +86,7 @@ func TestGetRespondentsReturns400WhenBadParamProvided(t *testing.T) {
 	toggleFeature("party.api.get.respondents", true)
 
 	req := httptest.NewRequest("GET", "/v2/respondents?nonsense=true", nil)
+	req.SetBasicAuth("admin", "secret")
 	router.ServeHTTP(resp, req)
 
 	assert.Equal(t, http.StatusBadRequest, resp.Code)
@@ -96,6 +100,19 @@ func TestGetRespondentsReturns400WhenBadParamProvided(t *testing.T) {
 	assert.Equal(t, "Invalid query parameter nonsense", errResp.Error)
 }
 
+func TestGetRespondentsReturns401WhenNotAuthed(t *testing.T) {
+	setup()
+	toggleFeature("party.api.get.respondents", true)
+
+	req := httptest.NewRequest("GET",
+		"/v2/respondents?firstName=Bob&lastName=Boblaw&emailAddress=bob@boblaw.com&telephone=01234567890&status=ACTIVE"+
+			"&businessId=21ab28e5-28cc-4a53-8186-e19d6942002c&surveyId=0ee5265c-9cf3-4029-a07e-db1e1d94a499&offset=15&limit=10",
+		nil)
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusUnauthorized, resp.Code)
+}
+
 func TestGetRespondentsReturns404WhenDBNotInit(t *testing.T) {
 	// It shouldn't be possible to start the app without a DB, but just in case
 	setup()
@@ -103,6 +120,7 @@ func TestGetRespondentsReturns404WhenDBNotInit(t *testing.T) {
 	db = nil
 
 	req := httptest.NewRequest("GET", "/v2/respondents?firstName=Bob", nil)
+	req.SetBasicAuth("admin", "secret")
 	router.ServeHTTP(resp, req)
 
 	var errResp models.Error
@@ -130,6 +148,7 @@ func TestGetRespondentsReturns404WhenDBDown(t *testing.T) {
 	mock.ExpectQuery(queryRegex).WillReturnError(fmt.Errorf("Connection refused"))
 
 	req := httptest.NewRequest("GET", "/v2/respondents?firstName=Bob", nil)
+	req.SetBasicAuth("admin", "secret")
 	router.ServeHTTP(resp, req)
 
 	var errResp models.Error
@@ -157,6 +176,7 @@ func TestGetRespondentsReturns404WhenNoResults(t *testing.T) {
 	mock.ExpectQuery(queryRegex).WillReturnRows(mock.NewRows(columns))
 
 	req := httptest.NewRequest("GET", "/v2/respondents?firstName=Bob", nil)
+	req.SetBasicAuth("admin", "secret")
 	router.ServeHTTP(resp, req)
 
 	var errResp models.Error
