@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -53,10 +52,9 @@ func TestGetRespondents(t *testing.T) {
 			"&businessId=21ab28e5-28cc-4a53-8186-e19d6942002c&surveyId=0ee5265c-9cf3-4029-a07e-db1e1d94a499&offset=15&limit=10",
 		nil)
 	router.ServeHTTP(resp, req)
-	body, _ := ioutil.ReadAll(resp.Body)
 
 	var respondent models.Respondents
-	err = json.Unmarshal(body, &respondent)
+	err = json.NewDecoder(resp.Body).Decode(&respondent)
 	if err != nil {
 		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
 	}
@@ -86,12 +84,11 @@ func TestGetRespondentsReturns400WhenBadParamProvided(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/v2/respondents?nonsense=true", nil)
 	router.ServeHTTP(resp, req)
-	body, _ := ioutil.ReadAll(resp.Body)
 
 	assert.Equal(t, http.StatusBadRequest, resp.Code)
 
 	var errResp models.Error
-	err := json.Unmarshal(body, &errResp)
+	err := json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
 		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
 	}
@@ -107,10 +104,9 @@ func TestGetRespondentsReturns404WhenDBNotInit(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/v2/respondents?firstName=Bob", nil)
 	router.ServeHTTP(resp, req)
-	body, _ := ioutil.ReadAll(resp.Body)
 
 	var errResp models.Error
-	err := json.Unmarshal(body, &errResp)
+	err := json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
 		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
 	}
@@ -135,10 +131,9 @@ func TestGetRespondentsReturns404WhenDBDown(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/v2/respondents?firstName=Bob", nil)
 	router.ServeHTTP(resp, req)
-	body, _ := ioutil.ReadAll(resp.Body)
 
 	var errResp models.Error
-	err = json.Unmarshal(body, &errResp)
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
 		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
 	}
@@ -163,10 +158,9 @@ func TestGetRespondentsReturns404WhenNoResults(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/v2/respondents?firstName=Bob", nil)
 	router.ServeHTTP(resp, req)
-	body, _ := ioutil.ReadAll(resp.Body)
 
 	var errResp models.Error
-	err = json.Unmarshal(body, &errResp)
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
 		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
 	}
