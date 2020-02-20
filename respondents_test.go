@@ -15,7 +15,7 @@ import (
 )
 
 var queryRegex = "SELECT (.+) from partysvc.respondent r JOIN partysvc.enrolment e ON r.id=e.respondent_id.*"
-var columns = []string{"id", "email_address", "first_name", "last_name", "telephone", "status", "business_id"}
+var columns = []string{"id", "email_address", "first_name", "last_name", "telephone", "status", "business_id", "enrolment_status", "survey_id"}
 
 func TestGetRespondentsIsFeatureFlagged(t *testing.T) {
 	// Assure that it's properly feature flagged away
@@ -42,8 +42,9 @@ func TestGetRespondents(t *testing.T) {
 	}
 
 	returnRows := mock.NewRows(columns)
-	returnRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71", "bob@boblaw.com", "Bob", "Boblaw", "01234567890", "ACTIVE", "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2")
-	returnRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71", "bob@boblaw.com", "Bob", "Boblaw", "01234567890", "ACTIVE", "2711912c-db86-4e1e-9728-fc28db049858")
+	returnRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71", "bob@boblaw.com", "Bob", "Boblaw", "01234567890", "ACTIVE", "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2", "ENABLED", "5e237abd-f8dc-4cb0-829e-58d5cef8ca4a")
+	returnRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71", "bob@boblaw.com", "Bob", "Boblaw", "01234567890", "ACTIVE", "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2", "DISABLED", "84bc0d0a-ae32-4fb1-aabc-6de370245d62")
+	returnRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71", "bob@boblaw.com", "Bob", "Boblaw", "01234567890", "ACTIVE", "2711912c-db86-4e1e-9728-fc28db049858", "ENABLED", "ba4274ac-a664-4c3d-8910-18b82a12ce09")
 
 	mock.ExpectQuery(queryRegex).WillReturnRows(returnRows)
 	req := httptest.NewRequest("GET",
@@ -63,6 +64,8 @@ func TestGetRespondents(t *testing.T) {
 	assert.Equal(t, 1, len(respondent.Data))
 	assert.Equal(t, "be70e086-7bbc-461c-a565-5b454d748a71", respondent.Data[0].Attributes.ID)
 	assert.Equal(t, 2, len(respondent.Data[0].Associations))
+	assert.Equal(t, 2, len(respondent.Data[0].Associations[0].Enrolments))
+	assert.Equal(t, 1, len(respondent.Data[0].Associations[1].Enrolments))
 }
 
 func TestGetRespondentsReturns400WhenNoParamsProvided(t *testing.T) {

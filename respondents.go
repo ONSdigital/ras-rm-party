@@ -20,6 +20,7 @@ func rowsToRespondentsModel(rows *sql.Rows) models.Respondents {
 			Associations: []models.Association{},
 		}
 		association := models.Association{Enrolments: []models.Enrolment{}}
+		enrolment := models.Enrolment{}
 
 		rows.Scan(
 			&respondent.Attributes.ID,
@@ -29,12 +30,27 @@ func rowsToRespondentsModel(rows *sql.Rows) models.Respondents {
 			&respondent.Attributes.Telephone,
 			&respondent.Status,
 			&association.ID,
+			&enrolment.SurveyID,
+			&enrolment.EnrolmentStatus,
 		)
 
-		// If we already have this respondent in the rowset, it's a new association
+		// If we already have this respondent in the rowset, it's a new association or enrolment
 		if val, ok := respMap[respondent.Attributes.ID]; ok {
-			val.Associations = append(val.Associations, association)
+			found := false
+			// If we already have this business association, it's a new enrolment for that association
+			for idx := range val.Associations {
+				if val.Associations[idx].ID == association.ID {
+					found = true
+					val.Associations[idx].Enrolments = append(val.Associations[idx].Enrolments, enrolment)
+					break
+				}
+			}
+			if !found {
+				association.Enrolments = append(association.Enrolments, enrolment)
+				val.Associations = append(val.Associations, association)
+			}
 		} else {
+			association.Enrolments = append(association.Enrolments, enrolment)
 			respondent.Associations = append(respondent.Associations, association)
 			respMap[respondent.Attributes.ID] = &respondent
 		}
@@ -127,7 +143,7 @@ func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		sb.WriteString(queryParams.Get("limit"))
 	}
 
-	queryString := "SELECT r.id, r.email_address, r.first_name, r.last_name, r.telephone, r.status, e.business_id " +
+	queryString := "SELECT r.id, r.email_address, r.first_name, r.last_name, r.telephone, r.status, e.business_id, e.status AS enrolment_status, e.survey_id " +
 		"from partysvc.respondent r JOIN partysvc.enrolment e ON r.id=e.respondent_id" + sb.String()
 
 	rows, err := db.Query(queryString)
