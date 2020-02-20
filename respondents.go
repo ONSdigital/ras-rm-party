@@ -195,6 +195,32 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		return
 	}
 
+	missingFields := []string{}
+	if postRequest.Data.Attributes.EmailAddress == "" {
+		missingFields = append(missingFields, "emailAddress")
+	}
+	if postRequest.Data.Attributes.FirstName == "" {
+		missingFields = append(missingFields, "firstName")
+	}
+	if postRequest.Data.Attributes.LastName == "" {
+		missingFields = append(missingFields, "lastName")
+	}
+	if postRequest.Data.Attributes.Telephone == "" {
+		missingFields = append(missingFields, "telephone")
+	}
+	if len(postRequest.EnrolmentCodes) == 0 {
+		missingFields = append(missingFields, "enrolmentCodes")
+	}
+
+	if len(missingFields) > 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		errorString := models.Error{
+			Error: "Missing required fields: " + strings.Join(missingFields, ", "),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+
 	w.WriteHeader(http.StatusCreated)
 	return
 }
