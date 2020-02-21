@@ -231,7 +231,7 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		return
 	}
 
-	enrolmentCodes := []models.Enrolment{}
+	enrolmentCodes := []models.IAC{}
 	// Check enrolment codes
 	for _, code := range postRequest.EnrolmentCodes {
 		resp, err := http.Get(viper.GetString("iac_service") + "/iacs/" + code)
@@ -251,9 +251,18 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 			json.NewEncoder(w).Encode(errorString)
 			return
 		}
-		enrolment := models.Enrolment{}
-		json.NewDecoder(resp.Body).Decode(&enrolment)
-		enrolmentCodes = append(enrolmentCodes, enrolment)
+		iac := models.IAC{}
+		json.NewDecoder(resp.Body).Decode(&iac)
+
+		if !iac.Active {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			errorString := models.Error{
+				Error: "Enrolment code inactive: " + code,
+			}
+			json.NewEncoder(w).Encode(errorString)
+			return
+		}
+		enrolmentCodes = append(enrolmentCodes, iac)
 	}
 
 	queryString := "INSERT INTO respondent VALUES (1, 1)"
