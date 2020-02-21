@@ -209,6 +209,12 @@ func TestPostRespondentsIsFeatureFlagged(t *testing.T) {
 func TestPostRespondents(t *testing.T) {
 	setup()
 	toggleFeature("party.api.post.respondents", true)
+	var err error
+	db, _, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
 	postReq := models.PostRespondents{
 		Data: models.Respondent{
 			Attributes: models.Attributes{
@@ -237,12 +243,18 @@ func TestPostRespondentsReturns400IfBadJSON(t *testing.T) {
 	setup()
 	toggleFeature("party.api.post.respondents", true)
 
+	var err error
+	db, _, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
 	req := httptest.NewRequest("POST", "/v2/respondents", strings.NewReader("{nonsense: true}"))
 	req.SetBasicAuth("admin", "secret")
 	router.ServeHTTP(resp, req)
 
 	var errResp models.Error
-	err := json.NewDecoder(resp.Body).Decode(&errResp)
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
 		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
@@ -254,6 +266,13 @@ func TestPostRespondentsReturns400IfBadJSON(t *testing.T) {
 func TestPostRespondentsReturns400IfRequiredFieldsMissing(t *testing.T) {
 	setup()
 	toggleFeature("party.api.post.respondents", true)
+
+	var err error
+	db, _, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
 	postReq := models.PostRespondents{
 		Data: models.Respondent{
 			Status: "ACTIVE",
@@ -302,4 +321,41 @@ func TestPostRespondentsReturns401WhenNotAuthed(t *testing.T) {
 	router.ServeHTTP(resp, req)
 
 	assert.Equal(t, http.StatusUnauthorized, resp.Code)
+}
+
+func TestPostRespondentsReturns404WhenDBNotInit(t *testing.T) {
+	// It shouldn't be possible to start the app without a DB, but just in case
+	setup()
+	toggleFeature("party.api.get.respondents", true)
+	db = nil
+
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234"}}
+
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+	}
+
+	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusNotFound, resp.Code)
+	assert.Equal(t, "Database connection could not be found", errResp.Error)
 }

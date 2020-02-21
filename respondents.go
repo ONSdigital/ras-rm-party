@@ -184,6 +184,15 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		return
 	}
 
+	if db == nil {
+		w.WriteHeader(http.StatusNotFound)
+		errorString := models.Error{
+			Error: "Database connection could not be found",
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+
 	var postRequest models.PostRespondents
 	err := json.NewDecoder(r.Body).Decode(&postRequest)
 	if err != nil {
