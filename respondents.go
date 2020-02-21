@@ -9,6 +9,7 @@ import (
 	"github.com/ONSdigital/ras-rm-party/models"
 	"github.com/Unleash/unleash-client-go/v3"
 	"github.com/julienschmidt/httprouter"
+	"github.com/spf13/viper"
 )
 
 func rowsToRespondentsModel(rows *sql.Rows) models.Respondents {
@@ -228,6 +229,31 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		}
 		json.NewEncoder(w).Encode(errorString)
 		return
+	}
+
+	enrolmentCodes := []models.Enrolment{}
+	// Check enrolment codes
+	for _, code := range postRequest.EnrolmentCodes {
+		resp, err := http.Get(viper.GetString("iac_service") + "/iacs/" + code)
+		if err != nil {
+			w.WriteHeader(http.StatusNotFound)
+			errorString := models.Error{
+				Error: "Couldn't communicate with IAC service: " + err.Error(),
+			}
+			json.NewEncoder(w).Encode(errorString)
+			return
+		}
+		if resp.StatusCode == http.StatusNotFound {
+			w.WriteHeader(http.StatusNotFound)
+			errorString := models.Error{
+				Error: "Enrolment code not found: " + code,
+			}
+			json.NewEncoder(w).Encode(errorString)
+			return
+		}
+		enrolment := models.Enrolment{}
+		json.NewDecoder(resp.Body).Decode(&enrolment)
+		enrolmentCodes = append(enrolmentCodes, enrolment)
 	}
 
 	queryString := "INSERT INTO respondent VALUES (1, 1)"
