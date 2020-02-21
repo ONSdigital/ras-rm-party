@@ -230,6 +230,23 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		return
 	}
 
+	queryString := "INSERT INTO respondent VALUES (1, 1)"
+	// TODO: add error handling
+	tx, err := db.Begin()
+	_, err = tx.Exec(queryString)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		errorString := models.Error{
+			Error: "Error querying DB: " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		tx.Rollback()
+		return
+	}
+
+	// TODO: add error handling
+	tx.Commit()
+
 	w.WriteHeader(http.StatusCreated)
 	return
 }
