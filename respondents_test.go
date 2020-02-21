@@ -13,10 +13,12 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/ONSdigital/ras-rm-party/models"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/h2non/gock.v1"
 )
 
-var queryRegex = "SELECT (.+) FROM partysvc.respondent JOIN partysvc.business_respondent br ON r.id=br.respondent_id JOIN partysvc.enrolment e ON br.business_id=e.business_id AND br.respondent_id=e.respondent_id*"
-var columns = []string{"id", "email_address", "first_name", "last_name", "telephone", "status", "business_id", "enrolment_status", "survey_id"}
+var searchQueryRegex = "SELECT (.+) FROM partysvc.respondent JOIN partysvc.business_respondent br ON r.id=br.respondent_id JOIN partysvc.enrolment e ON br.business_id=e.business_id AND br.respondent_id=e.respondent_id*"
+var searchQueryColumns = []string{"id", "email_address", "first_name", "last_name", "telephone", "status", "business_id", "enrolment_status", "survey_id"}
+var insertQueryRegex = "INSERT INTO (.+)*"
 
 // GET /respondents?...
 func TestGetRespondentsIsFeatureFlagged(t *testing.T) {
@@ -44,13 +46,13 @@ func TestGetRespondents(t *testing.T) {
 		log.Fatalf("Error setting up an SQL mock")
 	}
 
-	returnRows := mock.NewRows(columns)
+	returnRows := mock.NewRows(searchQueryColumns)
 	returnRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71", "bob@boblaw.com", "Bob", "Boblaw", "01234567890", "ACTIVE", "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2", "ENABLED", "5e237abd-f8dc-4cb0-829e-58d5cef8ca4a")
 	returnRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71", "bob@boblaw.com", "Bob", "Boblaw", "01234567890", "ACTIVE", "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2", "DISABLED", "84bc0d0a-ae32-4fb1-aabc-6de370245d62")
 	returnRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71", "bob@boblaw.com", "Bob", "Boblaw", "01234567890", "ACTIVE", "2711912c-db86-4e1e-9728-fc28db049858", "ENABLED", "ba4274ac-a664-4c3d-8910-18b82a12ce09")
 	returnRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71", "bob@boblaw.com", "Bob", "Boblaw", "01234567890", "ACTIVE", "d4a6c190-50da-4d02-9a78-f4de52d9e6af", "", "")
 
-	mock.ExpectQuery(queryRegex).WillReturnRows(returnRows)
+	mock.ExpectQuery(searchQueryRegex).WillReturnRows(returnRows)
 	req := httptest.NewRequest("GET",
 		"/v2/respondents?firstName=Bob&lastName=Boblaw&emailAddress=bob@boblaw.com&telephone=01234567890&status=ACTIVE"+
 			"&businessId=21ab28e5-28cc-4a53-8186-e19d6942002c&surveyId=0ee5265c-9cf3-4029-a07e-db1e1d94a499&offset=15&limit=10",
@@ -148,7 +150,7 @@ func TestGetRespondentsReturns404WhenDBDown(t *testing.T) {
 		log.Fatalf("Error setting up an SQL mock")
 	}
 
-	mock.ExpectQuery(queryRegex).WillReturnError(fmt.Errorf("Connection refused"))
+	mock.ExpectQuery(searchQueryRegex).WillReturnError(fmt.Errorf("Connection refused"))
 
 	req := httptest.NewRequest("GET", "/v2/respondents?firstName=Bob", nil)
 	req.SetBasicAuth("admin", "secret")
@@ -176,7 +178,7 @@ func TestGetRespondentsReturns404WhenNoResults(t *testing.T) {
 		log.Fatalf("Error setting up an SQL mock")
 	}
 
-	mock.ExpectQuery(queryRegex).WillReturnRows(mock.NewRows(columns))
+	mock.ExpectQuery(searchQueryRegex).WillReturnRows(mock.NewRows(searchQueryColumns))
 
 	req := httptest.NewRequest("GET", "/v2/respondents?firstName=Bob", nil)
 	req.SetBasicAuth("admin", "secret")
@@ -209,6 +211,15 @@ func TestPostRespondentsIsFeatureFlagged(t *testing.T) {
 func TestPostRespondents(t *testing.T) {
 	setup()
 	toggleFeature("party.api.post.respondents", true)
+	defer gock.Off()
+	var mock sqlmock.Sqlmock
+	var err error
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
 	postReq := models.PostRespondents{
 		Data: models.Respondent{
 			Attributes: models.Attributes{
@@ -221,28 +232,46 @@ func TestPostRespondents(t *testing.T) {
 		},
 		EnrolmentCodes: []string{"abc1234"}}
 
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
+		IAC:         "abc1234",
+		Active:      true,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		QuestionSet: "H1"})
+
 	jsonOut, err := json.Marshal(postReq)
 	if err != nil {
 		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
 	}
+
+	mock.ExpectBegin()
+	mock.ExpectExec(insertQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
 
 	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
 	req.SetBasicAuth("admin", "secret")
 	router.ServeHTTP(resp, req)
 
 	assert.Equal(t, http.StatusCreated, resp.Code)
+	assert.True(t, gock.IsDone())
 }
 
 func TestPostRespondentsReturns400IfBadJSON(t *testing.T) {
 	setup()
 	toggleFeature("party.api.post.respondents", true)
 
+	var err error
+	db, _, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
 	req := httptest.NewRequest("POST", "/v2/respondents", strings.NewReader("{nonsense: true}"))
 	req.SetBasicAuth("admin", "secret")
 	router.ServeHTTP(resp, req)
 
 	var errResp models.Error
-	err := json.NewDecoder(resp.Body).Decode(&errResp)
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
 		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
@@ -254,6 +283,13 @@ func TestPostRespondentsReturns400IfBadJSON(t *testing.T) {
 func TestPostRespondentsReturns400IfRequiredFieldsMissing(t *testing.T) {
 	setup()
 	toggleFeature("party.api.post.respondents", true)
+
+	var err error
+	db, _, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
 	postReq := models.PostRespondents{
 		Data: models.Respondent{
 			Status: "ACTIVE",
@@ -302,4 +338,236 @@ func TestPostRespondentsReturns401WhenNotAuthed(t *testing.T) {
 	router.ServeHTTP(resp, req)
 
 	assert.Equal(t, http.StatusUnauthorized, resp.Code)
+}
+
+func TestPostRespondentsReturns404WhenDBNotInit(t *testing.T) {
+	// It shouldn't be possible to start the app without a DB, but just in case
+	setup()
+	toggleFeature("party.api.post.respondents", true)
+	db = nil
+
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234"}}
+
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+	}
+
+	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusNotFound, resp.Code)
+	assert.Equal(t, "Database connection could not be found", errResp.Error)
+}
+
+func TestPostRespondentsReturns404WhenDBDown(t *testing.T) {
+	setup()
+	toggleFeature("party.api.post.respondents", true)
+	defer gock.Off()
+	var mock sqlmock.Sqlmock
+	var err error
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234"}}
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
+		IAC:         "abc1234",
+		Active:      true,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		QuestionSet: "H1"})
+
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectExec(insertQueryRegex).WillReturnError(fmt.Errorf("Connection refused"))
+	mock.ExpectRollback()
+
+	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusNotFound, resp.Code)
+	assert.Equal(t, "Error querying DB: Connection refused", errResp.Error)
+	assert.True(t, gock.IsDone())
+}
+
+func TestPostRespondentsReturns404IfEnrolmentCodeNotFound(t *testing.T) {
+	setup()
+	toggleFeature("party.api.post.respondents", true)
+	defer gock.Off()
+	var err error
+
+	db, _, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(404)
+
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234"}}
+
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+	}
+
+	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusNotFound, resp.Code)
+	assert.Equal(t, "Enrolment code not found: abc1234", errResp.Error)
+	assert.True(t, gock.IsDone())
+}
+
+func TestPostRespondentsReturns404IfIACCommunicationsFail(t *testing.T) {
+	// By not setting up the mock properly, we can effectively test an err in http.Get
+	setup()
+	toggleFeature("party.api.post.respondents", true)
+	defer gock.Off()
+	var err error
+
+	db, _, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	gock.New("http://iac-service").Get("/").Reply(200)
+
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234"}}
+
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+	}
+
+	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusNotFound, resp.Code)
+	assert.Contains(t, errResp.Error, "Couldn't communicate with IAC service:")
+}
+
+func TestPostRespondentsReturns422IfEnrolmentCodeInactive(t *testing.T) {
+	setup()
+	toggleFeature("party.api.post.respondents", true)
+	defer gock.Off()
+	var err error
+
+	db, _, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234"}}
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
+		IAC:         "abc1234",
+		Active:      false,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		QuestionSet: "H1"})
+
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+	}
+
+	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
+	assert.Equal(t, "Enrolment code inactive: abc1234", errResp.Error)
+	assert.True(t, gock.IsDone())
 }

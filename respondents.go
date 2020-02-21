@@ -9,6 +9,7 @@ import (
 	"github.com/ONSdigital/ras-rm-party/models"
 	"github.com/Unleash/unleash-client-go/v3"
 	"github.com/julienschmidt/httprouter"
+	"github.com/spf13/viper"
 )
 
 func rowsToRespondentsModel(rows *sql.Rows) models.Respondents {
@@ -184,6 +185,15 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		return
 	}
 
+	if db == nil {
+		w.WriteHeader(http.StatusNotFound)
+		errorString := models.Error{
+			Error: "Database connection could not be found",
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+
 	var postRequest models.PostRespondents
 	err := json.NewDecoder(r.Body).Decode(&postRequest)
 	if err != nil {
@@ -220,6 +230,57 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		json.NewEncoder(w).Encode(errorString)
 		return
 	}
+
+	enrolmentCodes := []models.IAC{}
+	// Check enrolment codes
+	for _, code := range postRequest.EnrolmentCodes {
+		resp, err := http.Get(viper.GetString("iac_service") + "/iacs/" + code)
+		if err != nil {
+			w.WriteHeader(http.StatusNotFound)
+			errorString := models.Error{
+				Error: "Couldn't communicate with IAC service: " + err.Error(),
+			}
+			json.NewEncoder(w).Encode(errorString)
+			return
+		}
+		if resp.StatusCode == http.StatusNotFound {
+			w.WriteHeader(http.StatusNotFound)
+			errorString := models.Error{
+				Error: "Enrolment code not found: " + code,
+			}
+			json.NewEncoder(w).Encode(errorString)
+			return
+		}
+		iac := models.IAC{}
+		json.NewDecoder(resp.Body).Decode(&iac)
+
+		if !iac.Active {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			errorString := models.Error{
+				Error: "Enrolment code inactive: " + code,
+			}
+			json.NewEncoder(w).Encode(errorString)
+			return
+		}
+		enrolmentCodes = append(enrolmentCodes, iac)
+	}
+
+	queryString := "INSERT INTO respondent VALUES (1, 1)"
+	// TODO: add error handling
+	tx, err := db.Begin()
+	_, err = tx.Exec(queryString)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		errorString := models.Error{
+			Error: "Error querying DB: " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		tx.Rollback()
+		return
+	}
+
+	// TODO: add error handling
+	tx.Commit()
 
 	w.WriteHeader(http.StatusCreated)
 	return

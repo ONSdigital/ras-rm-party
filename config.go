@@ -10,4 +10,5 @@ func setDefaults() {
 	viper.SetDefault("database_uri", "postgres://postgres:postgres@localhost:6432/postgres?sslmode=disable")
 	viper.SetDefault("security_user_name", "admin")
 	viper.SetDefault("security_user_password", "secret")
+	viper.SetDefault("iac_service", "http://localhost:8121")
 }
