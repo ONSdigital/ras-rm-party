@@ -106,6 +106,17 @@ func checkRowsForBusinessIDs(rows *sql.Rows, enrolments map[string]*newEnrolment
 	return "", true
 }
 
+func stringArrayContains(targetArray []string, val string) bool {
+	found := false
+	for _, str := range targetArray {
+		if str == val {
+			found = true
+			break
+		}
+	}
+	return found
+}
+
 func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	if !unleash.IsEnabled("party.api.get.respondents", unleash.WithFallback(false)) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -324,7 +335,9 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		}
 
 		json.NewDecoder(resp.Body).Decode(&enrolment.Case)
-		businessIDs = append(businessIDs, enrolment.Case.BusinessID)
+		if !stringArrayContains(businessIDs, enrolment.Case.BusinessID) {
+			businessIDs = append(businessIDs, enrolment.Case.BusinessID)
+		}
 
 		// Collection Exercise service
 		resp, err = http.Get(viper.GetString("collection_exercise_service") + "/collectionexercises/" + enrolment.Case.CaseGroup.CollectionExerciseID)
@@ -384,6 +397,14 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 	}
 
 	insertRespondent, err := tx.Prepare("INSERT INTO partysvc.respondent (id, status, email_address, first_name, last_name, telephone, created_on) VALUES ($1,$2,$3,$4,$5,$6,$7)")
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		errorString := models.Error{
+			Error: "Error creating DB prepared statement: " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
 	respondentID := postRequest.Data.Attributes.ID
 	if respondentID == "" {
 		respondentID = uuid.New().String()
@@ -396,6 +417,38 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		errorString := models.Error{
 			Error: "Can't create a respondent with ID " + respondentID + ": " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		tx.Rollback()
+		return
+	}
+
+	insertBusinessRespondent, err := tx.Prepare(pq.CopyIn("partysvc.respondent", "business_id", "respondent_id", "status", "effective_from", "created_on"))
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		errorString := models.Error{
+			Error: "Error creating DB prepared statement: " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+	for _, business := range businessIDs {
+		_, err = insertBusinessRespondent.Exec(business, respondentID, "ACTIVE", time.Now(), time.Now())
+		if err != nil {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			errorString := models.Error{
+				Error: "Can't create a business/respondent link with respondent ID " + respondentID + " and business ID " + business + ": " + err.Error(),
+			}
+			json.NewEncoder(w).Encode(errorString)
+			tx.Rollback()
+			return
+		}
+	}
+	_, err = insertBusinessRespondent.Exec()
+	if err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		errorString := models.Error{
+			Error: "Can't commit business/respondent links with respondent ID " + respondentID + ": " + err.Error(),
 		}
 		json.NewEncoder(w).Encode(errorString)
 		tx.Rollback()
