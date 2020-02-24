@@ -265,6 +265,33 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		enrolmentCodes = append(enrolmentCodes, iac)
 	}
 
+	cases := []models.Case{}
+	// Check cases
+	for _, iac := range enrolmentCodes {
+		resp, err := http.Get(viper.GetString("case_service") + "/cases/" + iac.CaseID)
+		if err != nil {
+			w.WriteHeader(http.StatusNotFound)
+			errorString := models.Error{
+				Error: "Couldn't communicate with Case service: " + err.Error(),
+			}
+			json.NewEncoder(w).Encode(errorString)
+			return
+		}
+		if resp.StatusCode == http.StatusNotFound {
+			w.WriteHeader(http.StatusNotFound)
+			errorString := models.Error{
+				Error: "Case not found for enrolment code: " + iac.IAC,
+			}
+			json.NewEncoder(w).Encode(errorString)
+			return
+		}
+
+		iacCase := models.Case{}
+		json.NewDecoder(resp.Body).Decode(&iacCase)
+
+		cases = append(cases, iacCase)
+	}
+
 	queryString := "INSERT INTO respondent VALUES (1, 1)"
 	// TODO: add error handling
 	tx, err := db.Begin()
