@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql/driver"
 	"log"
 	"net/http/httptest"
 	"sync"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Unleash/unleash-client-go/v3"
+	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -18,6 +20,21 @@ var resp *httptest.ResponseRecorder
 var unleashStub *fakeUnleashServer
 
 var testWg sync.WaitGroup
+
+// Matching functions for sqlmock
+type AnyUUID struct{}
+
+func (a AnyUUID) Match(v driver.Value) bool {
+	_, err := uuid.Parse(v.(string))
+	return err == nil
+}
+
+type AnyTime struct{}
+
+func (a AnyTime) Match(v driver.Value) bool {
+	_, ok := v.(time.Time)
+	return ok
+}
 
 func setup() {
 	setDefaults()

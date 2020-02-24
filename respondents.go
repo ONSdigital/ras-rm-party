@@ -5,12 +5,22 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/ONSdigital/ras-rm-party/models"
 	"github.com/Unleash/unleash-client-go/v3"
+	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
+	"github.com/lib/pq"
 	"github.com/spf13/viper"
 )
+
+// Represents the data retrieved from other services about an enrolment
+type newEnrolment struct {
+	IAC      models.IAC
+	Case     models.Case
+	SurveyID string
+}
 
 func rowsToRespondentsModel(rows *sql.Rows) models.Respondents {
 	respMap := make(map[string]*models.Respondent)
@@ -68,6 +78,32 @@ func rowsToRespondentsModel(rows *sql.Rows) models.Respondents {
 	}
 
 	return respondents
+}
+
+func checkRowsForBusinessIDs(rows *sql.Rows, enrolments map[string]*newEnrolment) (codeMissing string, ok bool) {
+	var existingBusinesses []string
+	if rows != nil {
+		for rows.Next() {
+			var id string
+			rows.Scan(&id)
+			existingBusinesses = append(existingBusinesses, id)
+		}
+	}
+
+	for code, enrolment := range enrolments {
+		found := false
+		for _, id := range existingBusinesses {
+			if enrolment.Case.BusinessID == id {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return code, false
+		}
+	}
+
+	return "", true
 }
 
 func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -179,13 +215,6 @@ func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 	json.NewEncoder(w).Encode(respondents)
 }
 
-// Represents the data retrieved from other services about an enrolment
-type newEnrolment struct {
-	IAC      models.IAC
-	Case     models.Case
-	SurveyID string
-}
-
 func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	if !unleash.IsEnabled("party.api.post.respondents", unleash.WithFallback(false)) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -238,7 +267,7 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		return
 	}
 
-	enrolments := map[string]newEnrolment{}
+	enrolments := map[string]*newEnrolment{}
 	// Check enrolment codes
 	for _, code := range postRequest.EnrolmentCodes {
 		resp, err := http.Get(viper.GetString("iac_service") + "/iacs/" + code)
@@ -269,10 +298,11 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 			json.NewEncoder(w).Encode(errorString)
 			return
 		}
-		enrolments[code] = newEnrolment{IAC: iac}
+		enrolments[code] = &newEnrolment{IAC: iac}
 	}
 
-	// Check cases and collection exercises
+	// Check cases and collection exercises and build up the business check
+	businessIDs := []string{}
 	for code, enrolment := range enrolments {
 		// Case service
 		resp, err := http.Get(viper.GetString("case_service") + "/cases/" + enrolment.IAC.CaseID)
@@ -293,8 +323,8 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 			return
 		}
 
-		enrolment.Case = models.Case{}
 		json.NewDecoder(resp.Body).Decode(&enrolment.Case)
+		businessIDs = append(businessIDs, enrolment.Case.BusinessID)
 
 		// Collection Exercise service
 		resp, err = http.Get(viper.GetString("collection_exercise_service") + "/collectionexercises/" + enrolment.Case.CaseGroup.CollectionExerciseID)
@@ -316,18 +346,49 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		}
 
 		collectionExercise := models.CollectionExercise{}
-		json.NewDecoder(resp.Body).Decode(&collectionExercise)
+		json.NewDecoder(resp.Body).Decode(&enrolment)
 		enrolment.SurveyID = collectionExercise.SurveyID
 	}
 
-	queryString := "INSERT INTO respondent VALUES (1, 1)"
-	// TODO: add error handling
-	tx, err := db.Begin()
-	_, err = tx.Exec(queryString)
+	// Ensure that all the businesses we want to associate with exist
+	businessQuery, err := db.Prepare("SELECT party_uuid FROM partysvc.business WHERE party_uuid=ANY($1)")
+	defer businessQuery.Close()
+	rows, err := businessQuery.Query(pq.Array(businessIDs))
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		errorString := models.Error{
 			Error: "Error querying DB: " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+
+	if missingCode, ok := checkRowsForBusinessIDs(rows, enrolments); !ok {
+		// Won't be able to associate with a business we can't find
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		errorString := models.Error{
+			Error: "Can't associate with the business for enrolment code: " + missingCode,
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+
+	// TODO: add error handling
+	tx, err := db.Begin()
+
+	insertRespondent, err := tx.Prepare("INSERT INTO partysvc.respondent (id, status, email_address, first_name, last_name, telephone, created_on) VALUES ($1,$2,$3,$4,$5,$6,$7)")
+	respondentID := postRequest.Data.Attributes.ID
+	if respondentID == "" {
+		respondentID = uuid.New().String()
+	}
+
+	defer insertRespondent.Close()
+	_, err = insertRespondent.Exec(respondentID, "CREATED", postRequest.Data.Attributes.EmailAddress, postRequest.Data.Attributes.FirstName,
+		postRequest.Data.Attributes.LastName, postRequest.Data.Attributes.Telephone, time.Now())
+	if err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		errorString := models.Error{
+			Error: "Can't create a respondent with ID " + respondentID + ": " + err.Error(),
 		}
 		json.NewEncoder(w).Encode(errorString)
 		tx.Rollback()
