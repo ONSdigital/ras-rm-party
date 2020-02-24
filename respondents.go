@@ -373,8 +373,15 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		return
 	}
 
-	// TODO: add error handling
 	tx, err := db.Begin()
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		errorString := models.Error{
+			Error: "Error creating DB transaction: " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
 
 	insertRespondent, err := tx.Prepare("INSERT INTO partysvc.respondent (id, status, email_address, first_name, last_name, telephone, created_on) VALUES ($1,$2,$3,$4,$5,$6,$7)")
 	respondentID := postRequest.Data.Attributes.ID

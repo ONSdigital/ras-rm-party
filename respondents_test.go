@@ -469,6 +469,80 @@ func TestPostRespondentsReturns404WhenDBDown(t *testing.T) {
 	assert.True(t, gock.IsDone())
 }
 
+func TestPostRespondentsReturns404IfDBTransactionCouldntBegin(t *testing.T) {
+	setup()
+	toggleFeature("party.api.post.respondents", true)
+	defer gock.Off()
+	var mock sqlmock.Sqlmock
+	var err error
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234"}}
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
+		IAC:         "abc1234",
+		Active:      true,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		QuestionSet: "H1"})
+
+	gock.New("http://localhost:8171").Get("/cases/7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb").Reply(200).JSON(models.Case{
+		ID:         "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		BusinessID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		CaseGroup: models.CaseGroup{
+			ID:                   "aa9c8e93-5cd9-4876-a2d3-78a87b972134",
+			CollectionExerciseID: "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		},
+	})
+
+	gock.New("http://localhost:8145").Get("/collectionexercises/1010b2f2-8668-498a-afee-3c33cdfe42ea").Reply(200).JSON(models.CollectionExercise{
+		ID:       "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		SurveyID: "0752a892-1a60-40a4-8aa3-2599405a8831",
+	})
+
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+	}
+
+	businessRows := mock.NewRows(searchBusinessesQueryColumns)
+	businessRows.AddRow("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2")
+
+	mock.ExpectPrepare(searchBusinessesQueryRegex).ExpectQuery().WithArgs(pq.Array([]string{"ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2"})).WillReturnRows(businessRows)
+
+	mock.ExpectBegin().WillReturnError(fmt.Errorf("Transaction failed"))
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusNotFound, resp.Code)
+	assert.Equal(t, "Error creating DB transaction: Transaction failed", errResp.Error)
+	assert.True(t, gock.IsDone())
+}
+
 func TestPostRespondentsReturns404IfEnrolmentCodeNotFound(t *testing.T) {
 	setup()
 	toggleFeature("party.api.post.respondents", true)
