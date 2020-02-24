@@ -432,6 +432,7 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		json.NewEncoder(w).Encode(errorString)
 		return
 	}
+	defer insertBusinessRespondent.Close()
 	for _, business := range businessIDs {
 		_, err = insertBusinessRespondent.Exec(business, respondentID, "ACTIVE", time.Now(), time.Now())
 		if err != nil {
