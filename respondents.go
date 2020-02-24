@@ -179,6 +179,13 @@ func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 	json.NewEncoder(w).Encode(respondents)
 }
 
+// Represents the data retrieved from other services about an enrolment
+type newEnrolment struct {
+	IAC      models.IAC
+	Case     models.Case
+	SurveyID string
+}
+
 func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	if !unleash.IsEnabled("party.api.post.respondents", unleash.WithFallback(false)) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -231,7 +238,7 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		return
 	}
 
-	enrolmentCodes := []models.IAC{}
+	enrolments := map[string]newEnrolment{}
 	// Check enrolment codes
 	for _, code := range postRequest.EnrolmentCodes {
 		resp, err := http.Get(viper.GetString("iac_service") + "/iacs/" + code)
@@ -262,13 +269,13 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 			json.NewEncoder(w).Encode(errorString)
 			return
 		}
-		enrolmentCodes = append(enrolmentCodes, iac)
+		enrolments[code] = newEnrolment{IAC: iac}
 	}
 
-	cases := []models.Case{}
-	// Check cases
-	for _, iac := range enrolmentCodes {
-		resp, err := http.Get(viper.GetString("case_service") + "/cases/" + iac.CaseID)
+	// Check cases and collection exercises
+	for code, enrolment := range enrolments {
+		// Case service
+		resp, err := http.Get(viper.GetString("case_service") + "/cases/" + enrolment.IAC.CaseID)
 		if err != nil {
 			w.WriteHeader(http.StatusNotFound)
 			errorString := models.Error{
@@ -280,16 +287,37 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		if resp.StatusCode == http.StatusNotFound {
 			w.WriteHeader(http.StatusNotFound)
 			errorString := models.Error{
-				Error: "Case not found for enrolment code: " + iac.IAC,
+				Error: "Case not found for enrolment code: " + code,
 			}
 			json.NewEncoder(w).Encode(errorString)
 			return
 		}
 
-		iacCase := models.Case{}
-		json.NewDecoder(resp.Body).Decode(&iacCase)
+		enrolment.Case = models.Case{}
+		json.NewDecoder(resp.Body).Decode(&enrolment.Case)
 
-		cases = append(cases, iacCase)
+		// Collection Exercise service
+		resp, err = http.Get(viper.GetString("collection_exercise_service") + "/collectionexercises/" + enrolment.Case.CaseGroup.CollectionExerciseID)
+		if err != nil {
+			w.WriteHeader(http.StatusNotFound)
+			errorString := models.Error{
+				Error: "Couldn't communicate with Collection Exercise service: " + err.Error(),
+			}
+			json.NewEncoder(w).Encode(errorString)
+			return
+		}
+		if resp.StatusCode == http.StatusNotFound {
+			w.WriteHeader(http.StatusNotFound)
+			errorString := models.Error{
+				Error: "Collection Exercise not found for enrolment code: " + code,
+			}
+			json.NewEncoder(w).Encode(errorString)
+			return
+		}
+
+		collectionExercise := models.CollectionExercise{}
+		json.NewDecoder(resp.Body).Decode(&collectionExercise)
+		enrolment.SurveyID = collectionExercise.SurveyID
 	}
 
 	queryString := "INSERT INTO respondent VALUES (1, 1)"
