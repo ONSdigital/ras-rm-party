@@ -234,6 +234,123 @@ func TestPostRespondents(t *testing.T) {
 			},
 			Status: "ACTIVE",
 		},
+		EnrolmentCodes: []string{"abc1234", "abc1235"}}
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
+		IAC:         "abc1234",
+		Active:      true,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		QuestionSet: "H1"})
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1235").Reply(200).JSON(models.IAC{
+		IAC:         "abc1235",
+		Active:      true,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "fbb2d260-da57-4607-b829-a2bd434a01dd",
+		QuestionSet: "H1"})
+
+	gock.New("http://localhost:8171").Get("/cases/7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb").Reply(200).JSON(models.Case{
+		ID:         "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		BusinessID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		CaseGroup: models.CaseGroup{
+			ID:                   "aa9c8e93-5cd9-4876-a2d3-78a87b972134",
+			CollectionExerciseID: "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		},
+	})
+
+	gock.New("http://localhost:8171").Get("/cases/fbb2d260-da57-4607-b829-a2bd434a01dd").Reply(200).JSON(models.Case{
+		ID:         "fbb2d260-da57-4607-b829-a2bd434a01dd",
+		BusinessID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		CaseGroup: models.CaseGroup{
+			ID:                   "3f8dcbaf-d5d4-415f-bb45-c2cb328320eb",
+			CollectionExerciseID: "91b4e876-16af-471e-973e-e3da5ab127bd",
+		},
+	})
+
+	gock.New("http://localhost:8145").Get("/collectionexercises/1010b2f2-8668-498a-afee-3c33cdfe42ea").Reply(200).JSON(models.CollectionExercise{
+		ID:       "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		SurveyID: "0752a892-1a60-40a4-8aa3-2599405a8831",
+	})
+
+	gock.New("http://localhost:8145").Get("/collectionexercises/91b4e876-16af-471e-973e-e3da5ab127bd").Reply(200).JSON(models.CollectionExercise{
+		ID:       "91b4e876-16af-471e-973e-e3da5ab127bd",
+		SurveyID: "c43cafd8-ece0-410f-9887-0b0b5eb681fb",
+	})
+
+	gock.New("http://localhost:8121").Put("/abc1234").Reply(200)
+
+	gock.New("http://localhost:8121").Put("/abc1235").Reply(200)
+
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+	}
+
+	businessRows := mock.NewRows(searchBusinessesQueryColumns)
+	businessRows.AddRow("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2")
+
+	mock.ExpectPrepare(searchBusinessesQueryRegex).ExpectQuery().WithArgs(pq.Array([]string{"ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2"})).WillReturnRows(businessRows)
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(insertQueryRegex).ExpectExec().WithArgs(AnyUUID{}, "CREATED", postReq.Data.Attributes.EmailAddress, postReq.Data.Attributes.FirstName,
+		postReq.Data.Attributes.LastName, postReq.Data.Attributes.Telephone, AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectPrepare(copyQueryRegex).ExpectExec().WithArgs("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2", AnyUUID{}, "ACTIVE", AnyTime{}, AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectPrepare(copyQueryRegex)
+	mock.ExpectPrepare(copyQueryRegex)
+	mock.ExpectExec(copyQueryRegex).WithArgs("7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb", AnyUUID{}, "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		"0752a892-1a60-40a4-8aa3-2599405a8831", AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WithArgs(AnyUUID{}, "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		"0752a892-1a60-40a4-8aa3-2599405a8831", "PENDING", AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WithArgs("fbb2d260-da57-4607-b829-a2bd434a01dd", AnyUUID{}, "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		"c43cafd8-ece0-410f-9887-0b0b5eb681fb", AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WithArgs(AnyUUID{}, "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		"c43cafd8-ece0-410f-9887-0b0b5eb681fb", "PENDING", AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var response models.Respondents
+	err = json.NewDecoder(resp.Body).Decode(&response)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusCreated, resp.Code)
+	assert.True(t, gock.IsDone())
+	assert.Equal(t, "Bob", response.Data[0].Attributes.FirstName)
+	assert.Equal(t, 2, len(response.Data[0].Associations[0].Enrolments))
+}
+
+func TestPostRespondentsIfIACDeactivationFails(t *testing.T) {
+	// By not setting up the mock properly, we can effectively test an err in http PUT
+	setup()
+	toggleFeature("party.api.post.respondents", true)
+	defer gock.Off()
+	var mock sqlmock.Sqlmock
+	var err error
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+			},
+			Status: "ACTIVE",
+		},
 		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
@@ -257,6 +374,8 @@ func TestPostRespondents(t *testing.T) {
 		SurveyID: "0752a892-1a60-40a4-8aa3-2599405a8831",
 	})
 
+	// Calling IAC to deactivate the enrolment code fails, but the whole process still works and sends 200
+
 	jsonOut, err := json.Marshal(postReq)
 	if err != nil {
 		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
@@ -272,15 +391,127 @@ func TestPostRespondents(t *testing.T) {
 		postReq.Data.Attributes.LastName, postReq.Data.Attributes.Telephone, AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectPrepare(copyQueryRegex).ExpectExec().WithArgs("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2", AnyUUID{}, "ACTIVE", AnyTime{}, AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec(copyQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectPrepare(copyQueryRegex)
+	mock.ExpectPrepare(copyQueryRegex)
+	mock.ExpectExec(copyQueryRegex).WithArgs("7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb", AnyUUID{}, "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		"0752a892-1a60-40a4-8aa3-2599405a8831", AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WithArgs(AnyUUID{}, "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		"0752a892-1a60-40a4-8aa3-2599405a8831", "PENDING", AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 	mock.ExpectClose()
+
+	var logCatcher bytes.Buffer
+	log.SetOutput(&logCatcher)
 
 	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
 	req.SetBasicAuth("admin", "secret")
 	router.ServeHTTP(resp, req)
 
+	var response models.Respondents
+	err = json.NewDecoder(resp.Body).Decode(&response)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
+	}
+
 	assert.Equal(t, http.StatusCreated, resp.Code)
+	assert.Contains(t, logCatcher.String(), "Error deactivating enrolment code abc1234:")
 	assert.True(t, gock.IsDone())
+	assert.Equal(t, "Bob", response.Data[0].Attributes.FirstName)
+}
+
+func TestPostRespondentsIfIACDeactivationDoesntReturn200(t *testing.T) {
+	setup()
+	toggleFeature("party.api.post.respondents", true)
+	defer gock.Off()
+	var mock sqlmock.Sqlmock
+	var err error
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234"}}
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
+		IAC:         "abc1234",
+		Active:      true,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		QuestionSet: "H1"})
+
+	gock.New("http://localhost:8171").Get("/cases/7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb").Reply(200).JSON(models.Case{
+		ID:         "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		BusinessID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		CaseGroup: models.CaseGroup{
+			ID:                   "aa9c8e93-5cd9-4876-a2d3-78a87b972134",
+			CollectionExerciseID: "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		},
+	})
+
+	gock.New("http://localhost:8145").Get("/collectionexercises/1010b2f2-8668-498a-afee-3c33cdfe42ea").Reply(200).JSON(models.CollectionExercise{
+		ID:       "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		SurveyID: "0752a892-1a60-40a4-8aa3-2599405a8831",
+	})
+
+	// Calling IAC to deactivate the enrolment code fails, but the whole process still works and sends 200
+	gock.New("http://localhost:8121").Put("/abc1234").Reply(404)
+
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+	}
+
+	businessRows := mock.NewRows(searchBusinessesQueryColumns)
+	businessRows.AddRow("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2")
+
+	mock.ExpectPrepare(searchBusinessesQueryRegex).ExpectQuery().WithArgs(pq.Array([]string{"ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2"})).WillReturnRows(businessRows)
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(insertQueryRegex).ExpectExec().WithArgs(AnyUUID{}, "CREATED", postReq.Data.Attributes.EmailAddress, postReq.Data.Attributes.FirstName,
+		postReq.Data.Attributes.LastName, postReq.Data.Attributes.Telephone, AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectPrepare(copyQueryRegex).ExpectExec().WithArgs("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2", AnyUUID{}, "ACTIVE", AnyTime{}, AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectPrepare(copyQueryRegex)
+	mock.ExpectPrepare(copyQueryRegex)
+	mock.ExpectExec(copyQueryRegex).WithArgs("7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb", AnyUUID{}, "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		"0752a892-1a60-40a4-8aa3-2599405a8831", AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WithArgs(AnyUUID{}, "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		"0752a892-1a60-40a4-8aa3-2599405a8831", "PENDING", AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+	mock.ExpectClose()
+
+	var logCatcher bytes.Buffer
+	log.SetOutput(&logCatcher)
+
+	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var response models.Respondents
+	err = json.NewDecoder(resp.Body).Decode(&response)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusCreated, resp.Code)
+	assert.Contains(t, logCatcher.String(), "Error deactivating enrolment code abc1234: Received status code 404 from IAC service")
+	assert.True(t, gock.IsDone())
+	assert.Equal(t, "Bob", response.Data[0].Attributes.FirstName)
 }
 
 func TestPostRespondentsReturns400IfBadJSON(t *testing.T) {
@@ -876,6 +1107,437 @@ func TestPostRespondentsReturns422IfBusinessRespondentCouldntBeCommitted(t *test
 	assert.True(t, gock.IsDone())
 }
 
+func TestPostRespondentsReturns422IfPendingEnrolmentCouldntBeInserted(t *testing.T) {
+	setup()
+	toggleFeature("party.api.post.respondents", true)
+	defer gock.Off()
+	var mock sqlmock.Sqlmock
+	var err error
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234"}}
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
+		IAC:         "abc1234",
+		Active:      true,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		QuestionSet: "H1"})
+
+	gock.New("http://localhost:8171").Get("/cases/7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb").Reply(200).JSON(models.Case{
+		ID:         "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		BusinessID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		CaseGroup: models.CaseGroup{
+			ID:                   "aa9c8e93-5cd9-4876-a2d3-78a87b972134",
+			CollectionExerciseID: "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		},
+	})
+
+	gock.New("http://localhost:8145").Get("/collectionexercises/1010b2f2-8668-498a-afee-3c33cdfe42ea").Reply(200).JSON(models.CollectionExercise{
+		ID:       "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		SurveyID: "0752a892-1a60-40a4-8aa3-2599405a8831",
+	})
+
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+	}
+
+	businessRows := mock.NewRows(searchBusinessesQueryColumns)
+	businessRows.AddRow("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2")
+
+	mock.ExpectPrepare(searchBusinessesQueryRegex).ExpectQuery().WithArgs(pq.Array([]string{"ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2"})).WillReturnRows(businessRows)
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(insertQueryRegex).ExpectExec().WithArgs(AnyUUID{}, "CREATED", postReq.Data.Attributes.EmailAddress, postReq.Data.Attributes.FirstName,
+		postReq.Data.Attributes.LastName, postReq.Data.Attributes.Telephone, AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectPrepare(copyQueryRegex).ExpectExec().WithArgs("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2", AnyUUID{}, "ACTIVE", AnyTime{}, AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectPrepare(copyQueryRegex)
+	mock.ExpectPrepare(copyQueryRegex)
+	mock.ExpectExec(copyQueryRegex).WithArgs("7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb", AnyUUID{}, "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		"0752a892-1a60-40a4-8aa3-2599405a8831", AnyTime{}).WillReturnError(fmt.Errorf("Foreign key violation"))
+	mock.ExpectRollback()
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
+	assert.Equal(t, "Can't create a Pending Enrolment with respondent ID be70e086-7bbc-461c-a565-5b454d748a71 and business ID ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2: Foreign key violation",
+		errResp.Error)
+	assert.True(t, gock.IsDone())
+}
+
+func TestPostRespondentsReturns422IfPendingEnrolmentCouldntBeCommitted(t *testing.T) {
+	setup()
+	toggleFeature("party.api.post.respondents", true)
+	defer gock.Off()
+	var mock sqlmock.Sqlmock
+	var err error
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234"}}
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
+		IAC:         "abc1234",
+		Active:      true,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		QuestionSet: "H1"})
+
+	gock.New("http://localhost:8171").Get("/cases/7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb").Reply(200).JSON(models.Case{
+		ID:         "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		BusinessID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		CaseGroup: models.CaseGroup{
+			ID:                   "aa9c8e93-5cd9-4876-a2d3-78a87b972134",
+			CollectionExerciseID: "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		},
+	})
+
+	gock.New("http://localhost:8145").Get("/collectionexercises/1010b2f2-8668-498a-afee-3c33cdfe42ea").Reply(200).JSON(models.CollectionExercise{
+		ID:       "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		SurveyID: "0752a892-1a60-40a4-8aa3-2599405a8831",
+	})
+
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+	}
+
+	businessRows := mock.NewRows(searchBusinessesQueryColumns)
+	businessRows.AddRow("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2")
+
+	mock.ExpectPrepare(searchBusinessesQueryRegex).ExpectQuery().WithArgs(pq.Array([]string{"ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2"})).WillReturnRows(businessRows)
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(insertQueryRegex).ExpectExec().WithArgs(AnyUUID{}, "CREATED", postReq.Data.Attributes.EmailAddress, postReq.Data.Attributes.FirstName,
+		postReq.Data.Attributes.LastName, postReq.Data.Attributes.Telephone, AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectPrepare(copyQueryRegex).ExpectExec().WithArgs("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2", AnyUUID{}, "ACTIVE", AnyTime{}, AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectPrepare(copyQueryRegex)
+	mock.ExpectPrepare(copyQueryRegex)
+	mock.ExpectExec(copyQueryRegex).WithArgs("7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb", AnyUUID{}, "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		"0752a892-1a60-40a4-8aa3-2599405a8831", AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WithArgs(AnyUUID{}, "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		"0752a892-1a60-40a4-8aa3-2599405a8831", "PENDING", AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WillReturnError(fmt.Errorf("Foreign key violation"))
+	mock.ExpectRollback()
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
+	assert.Equal(t, "Can't commit pending enrolments with respondent ID be70e086-7bbc-461c-a565-5b454d748a71: Foreign key violation", errResp.Error)
+	assert.True(t, gock.IsDone())
+}
+
+func TestPostRespondentsReturns422IfEnrolmentCouldntBeInserted(t *testing.T) {
+	setup()
+	toggleFeature("party.api.post.respondents", true)
+	defer gock.Off()
+	var mock sqlmock.Sqlmock
+	var err error
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234"}}
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
+		IAC:         "abc1234",
+		Active:      true,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		QuestionSet: "H1"})
+
+	gock.New("http://localhost:8171").Get("/cases/7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb").Reply(200).JSON(models.Case{
+		ID:         "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		BusinessID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		CaseGroup: models.CaseGroup{
+			ID:                   "aa9c8e93-5cd9-4876-a2d3-78a87b972134",
+			CollectionExerciseID: "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		},
+	})
+
+	gock.New("http://localhost:8145").Get("/collectionexercises/1010b2f2-8668-498a-afee-3c33cdfe42ea").Reply(200).JSON(models.CollectionExercise{
+		ID:       "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		SurveyID: "0752a892-1a60-40a4-8aa3-2599405a8831",
+	})
+
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+	}
+
+	businessRows := mock.NewRows(searchBusinessesQueryColumns)
+	businessRows.AddRow("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2")
+
+	mock.ExpectPrepare(searchBusinessesQueryRegex).ExpectQuery().WithArgs(pq.Array([]string{"ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2"})).WillReturnRows(businessRows)
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(insertQueryRegex).ExpectExec().WithArgs(AnyUUID{}, "CREATED", postReq.Data.Attributes.EmailAddress, postReq.Data.Attributes.FirstName,
+		postReq.Data.Attributes.LastName, postReq.Data.Attributes.Telephone, AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectPrepare(copyQueryRegex).ExpectExec().WithArgs("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2", AnyUUID{}, "ACTIVE", AnyTime{}, AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectPrepare(copyQueryRegex)
+	mock.ExpectPrepare(copyQueryRegex)
+	mock.ExpectExec(copyQueryRegex).WithArgs("7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb", AnyUUID{}, "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		"0752a892-1a60-40a4-8aa3-2599405a8831", AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WithArgs(AnyUUID{}, "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		"0752a892-1a60-40a4-8aa3-2599405a8831", "PENDING", AnyTime{}).WillReturnError(fmt.Errorf("Foreign key violation"))
+	mock.ExpectRollback()
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
+	assert.Equal(t, "Can't create an Enrolment with respondent ID be70e086-7bbc-461c-a565-5b454d748a71 and business ID ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2: Foreign key violation",
+		errResp.Error)
+	assert.True(t, gock.IsDone())
+}
+
+func TestPostRespondentsReturns422IfEnrolmentCouldntBeCommitted(t *testing.T) {
+	setup()
+	toggleFeature("party.api.post.respondents", true)
+	defer gock.Off()
+	var mock sqlmock.Sqlmock
+	var err error
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234"}}
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
+		IAC:         "abc1234",
+		Active:      true,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		QuestionSet: "H1"})
+
+	gock.New("http://localhost:8171").Get("/cases/7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb").Reply(200).JSON(models.Case{
+		ID:         "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		BusinessID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		CaseGroup: models.CaseGroup{
+			ID:                   "aa9c8e93-5cd9-4876-a2d3-78a87b972134",
+			CollectionExerciseID: "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		},
+	})
+
+	gock.New("http://localhost:8145").Get("/collectionexercises/1010b2f2-8668-498a-afee-3c33cdfe42ea").Reply(200).JSON(models.CollectionExercise{
+		ID:       "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		SurveyID: "0752a892-1a60-40a4-8aa3-2599405a8831",
+	})
+
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+	}
+
+	businessRows := mock.NewRows(searchBusinessesQueryColumns)
+	businessRows.AddRow("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2")
+
+	mock.ExpectPrepare(searchBusinessesQueryRegex).ExpectQuery().WithArgs(pq.Array([]string{"ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2"})).WillReturnRows(businessRows)
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(insertQueryRegex).ExpectExec().WithArgs(AnyUUID{}, "CREATED", postReq.Data.Attributes.EmailAddress, postReq.Data.Attributes.FirstName,
+		postReq.Data.Attributes.LastName, postReq.Data.Attributes.Telephone, AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectPrepare(copyQueryRegex).ExpectExec().WithArgs("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2", AnyUUID{}, "ACTIVE", AnyTime{}, AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectPrepare(copyQueryRegex)
+	mock.ExpectPrepare(copyQueryRegex)
+	mock.ExpectExec(copyQueryRegex).WithArgs("7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb", AnyUUID{}, "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		"0752a892-1a60-40a4-8aa3-2599405a8831", AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WithArgs(AnyUUID{}, "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		"0752a892-1a60-40a4-8aa3-2599405a8831", "PENDING", AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WillReturnError(fmt.Errorf("Foreign key violation"))
+	mock.ExpectRollback()
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
+	assert.Equal(t, "Can't commit enrolments with respondent ID be70e086-7bbc-461c-a565-5b454d748a71: Foreign key violation", errResp.Error)
+	assert.True(t, gock.IsDone())
+}
+
+func TestPostRespondentsReturns422IfCommitFails(t *testing.T) {
+	setup()
+	toggleFeature("party.api.post.respondents", true)
+	defer gock.Off()
+	var mock sqlmock.Sqlmock
+	var err error
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234"}}
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
+		IAC:         "abc1234",
+		Active:      true,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		QuestionSet: "H1"})
+
+	gock.New("http://localhost:8171").Get("/cases/7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb").Reply(200).JSON(models.Case{
+		ID:         "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		BusinessID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		CaseGroup: models.CaseGroup{
+			ID:                   "aa9c8e93-5cd9-4876-a2d3-78a87b972134",
+			CollectionExerciseID: "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		},
+	})
+
+	gock.New("http://localhost:8145").Get("/collectionexercises/1010b2f2-8668-498a-afee-3c33cdfe42ea").Reply(200).JSON(models.CollectionExercise{
+		ID:       "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		SurveyID: "0752a892-1a60-40a4-8aa3-2599405a8831",
+	})
+
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+	}
+
+	businessRows := mock.NewRows(searchBusinessesQueryColumns)
+	businessRows.AddRow("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2")
+
+	mock.ExpectPrepare(searchBusinessesQueryRegex).ExpectQuery().WithArgs(pq.Array([]string{"ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2"})).WillReturnRows(businessRows)
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(insertQueryRegex).ExpectExec().WithArgs(AnyUUID{}, "CREATED", postReq.Data.Attributes.EmailAddress, postReq.Data.Attributes.FirstName,
+		postReq.Data.Attributes.LastName, postReq.Data.Attributes.Telephone, AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectPrepare(copyQueryRegex).ExpectExec().WithArgs("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2", AnyUUID{}, "ACTIVE", AnyTime{}, AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectPrepare(copyQueryRegex)
+	mock.ExpectPrepare(copyQueryRegex)
+	mock.ExpectExec(copyQueryRegex).WithArgs("7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb", AnyUUID{}, "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		"0752a892-1a60-40a4-8aa3-2599405a8831", AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WithArgs(AnyUUID{}, "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		"0752a892-1a60-40a4-8aa3-2599405a8831", "PENDING", AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit().WillReturnError(fmt.Errorf("Foreign key violation"))
+	mock.ExpectRollback()
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
+	assert.Equal(t, "Can't commit database transaction for respondent ID be70e086-7bbc-461c-a565-5b454d748a71: Foreign key violation", errResp.Error)
+	assert.True(t, gock.IsDone())
+}
+
 func TestPostRespondentsReturns500WhenDBNotInit(t *testing.T) {
 	// It shouldn't be possible to start the app without a DB, but just in case
 	setup()
@@ -1344,7 +2006,165 @@ func TestPostRespondentsReturns500IfInsertBusinessRespondentPreparedStatementFai
 	mock.ExpectPrepare(insertQueryRegex).ExpectExec().WithArgs(AnyUUID{}, "CREATED", postReq.Data.Attributes.EmailAddress, postReq.Data.Attributes.FirstName,
 		postReq.Data.Attributes.LastName, postReq.Data.Attributes.Telephone, AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectPrepare(copyQueryRegex).WillReturnError(fmt.Errorf("Syntax error"))
-	mock.ExpectCommit()
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "Error creating DB prepared statement: Syntax error", errResp.Error)
+	assert.True(t, gock.IsDone())
+}
+
+func TestPostRespondentsReturns500IfInsertPendingEnrolmentPreparedStatementFails(t *testing.T) {
+	setup()
+	toggleFeature("party.api.post.respondents", true)
+	defer gock.Off()
+	var mock sqlmock.Sqlmock
+	var err error
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234"}}
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
+		IAC:         "abc1234",
+		Active:      true,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		QuestionSet: "H1"})
+
+	gock.New("http://localhost:8171").Get("/cases/7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb").Reply(200).JSON(models.Case{
+		ID:         "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		BusinessID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		CaseGroup: models.CaseGroup{
+			ID:                   "aa9c8e93-5cd9-4876-a2d3-78a87b972134",
+			CollectionExerciseID: "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		},
+	})
+
+	gock.New("http://localhost:8145").Get("/collectionexercises/1010b2f2-8668-498a-afee-3c33cdfe42ea").Reply(200).JSON(models.CollectionExercise{
+		ID:       "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		SurveyID: "0752a892-1a60-40a4-8aa3-2599405a8831",
+	})
+
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+	}
+
+	businessRows := mock.NewRows(searchBusinessesQueryColumns)
+	businessRows.AddRow("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2")
+
+	mock.ExpectPrepare(searchBusinessesQueryRegex).ExpectQuery().WithArgs(pq.Array([]string{"ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2"})).WillReturnRows(businessRows)
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(insertQueryRegex).ExpectExec().WithArgs(AnyUUID{}, "CREATED", postReq.Data.Attributes.EmailAddress, postReq.Data.Attributes.FirstName,
+		postReq.Data.Attributes.LastName, postReq.Data.Attributes.Telephone, AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectPrepare(copyQueryRegex).ExpectExec().WithArgs("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2", AnyUUID{}, "ACTIVE", AnyTime{}, AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectPrepare(copyQueryRegex).WillReturnError(fmt.Errorf("Syntax error"))
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "Error creating DB prepared statement: Syntax error", errResp.Error)
+	assert.True(t, gock.IsDone())
+}
+
+func TestPostRespondentsReturns500IfInsertEnrolmentPreparedStatementFails(t *testing.T) {
+	setup()
+	toggleFeature("party.api.post.respondents", true)
+	defer gock.Off()
+	var mock sqlmock.Sqlmock
+	var err error
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234"}}
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
+		IAC:         "abc1234",
+		Active:      true,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		QuestionSet: "H1"})
+
+	gock.New("http://localhost:8171").Get("/cases/7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb").Reply(200).JSON(models.Case{
+		ID:         "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		BusinessID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		CaseGroup: models.CaseGroup{
+			ID:                   "aa9c8e93-5cd9-4876-a2d3-78a87b972134",
+			CollectionExerciseID: "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		},
+	})
+
+	gock.New("http://localhost:8145").Get("/collectionexercises/1010b2f2-8668-498a-afee-3c33cdfe42ea").Reply(200).JSON(models.CollectionExercise{
+		ID:       "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		SurveyID: "0752a892-1a60-40a4-8aa3-2599405a8831",
+	})
+
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+	}
+
+	businessRows := mock.NewRows(searchBusinessesQueryColumns)
+	businessRows.AddRow("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2")
+
+	mock.ExpectPrepare(searchBusinessesQueryRegex).ExpectQuery().WithArgs(pq.Array([]string{"ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2"})).WillReturnRows(businessRows)
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(insertQueryRegex).ExpectExec().WithArgs(AnyUUID{}, "CREATED", postReq.Data.Attributes.EmailAddress, postReq.Data.Attributes.FirstName,
+		postReq.Data.Attributes.LastName, postReq.Data.Attributes.Telephone, AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectPrepare(copyQueryRegex).ExpectExec().WithArgs("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2", AnyUUID{}, "ACTIVE", AnyTime{}, AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectPrepare(copyQueryRegex)
+	mock.ExpectPrepare(copyQueryRegex).WillReturnError(fmt.Errorf("Syntax error"))
 	mock.ExpectClose()
 
 	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
