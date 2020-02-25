@@ -160,6 +160,8 @@ paths:
           description: A provided enrolment code couldn't be found.
         '422':
           description: A provided enrolment code has expired or the business associated with an enrolment code couldn't be associated with.
+        '500':
+          $ref: '#/components/responses/CommunicationError'
   /respondents/{id}:
     delete:
       summary: Deletes a respondent from the service.
