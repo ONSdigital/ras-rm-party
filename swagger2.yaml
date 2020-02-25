@@ -116,6 +116,8 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         '404':
           description: No respondents were found based on the parameters provided.
+        '500':
+          $ref: '#/components/responses/CommunicationError'
     post:
       summary: Creates a new respondent.
       description: | 
@@ -457,7 +459,7 @@ components:
           schema:
             type: object
             properties:
-              description:
+              error:
                 type: string
                 example: Respondent does not exist
     BusinessNotFoundError:
@@ -467,9 +469,19 @@ components:
           schema:
             type: object
             properties:
-              description:
+              error:
                 type: string
                 example: Business does not exist
+    CommuinicationError:
+      description: There were problems communicating with another service or the database.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Couldn't communicate with Case service: 404 not found"
     QueryParametersMissingError:
       description: No query parameters were provided.
     InvalidRequestBodyError:
