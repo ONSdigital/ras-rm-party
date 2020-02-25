@@ -124,7 +124,7 @@ func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 	}
 
 	if db == nil {
-		w.WriteHeader(http.StatusNotFound)
+		w.WriteHeader(http.StatusInternalServerError)
 		errorString := models.Error{
 			Error: "Database connection could not be found",
 		}
@@ -203,7 +203,7 @@ func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 
 	rows, err := db.Query(queryString)
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
+		w.WriteHeader(http.StatusInternalServerError)
 		errorString := models.Error{
 			Error: "Error querying DB: " + err.Error(),
 		}
@@ -233,7 +233,7 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 	}
 
 	if db == nil {
-		w.WriteHeader(http.StatusNotFound)
+		w.WriteHeader(http.StatusInternalServerError)
 		errorString := models.Error{
 			Error: "Database connection could not be found",
 		}
@@ -283,7 +283,7 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 	for _, code := range postRequest.EnrolmentCodes {
 		resp, err := http.Get(viper.GetString("iac_service") + "/iacs/" + code)
 		if err != nil {
-			w.WriteHeader(http.StatusNotFound)
+			w.WriteHeader(http.StatusInternalServerError)
 			errorString := models.Error{
 				Error: "Couldn't communicate with IAC service: " + err.Error(),
 			}
@@ -318,7 +318,7 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		// Case service
 		resp, err := http.Get(viper.GetString("case_service") + "/cases/" + enrolment.IAC.CaseID)
 		if err != nil {
-			w.WriteHeader(http.StatusNotFound)
+			w.WriteHeader(http.StatusInternalServerError)
 			errorString := models.Error{
 				Error: "Couldn't communicate with Case service: " + err.Error(),
 			}
@@ -342,7 +342,7 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		// Collection Exercise service
 		resp, err = http.Get(viper.GetString("collection_exercise_service") + "/collectionexercises/" + enrolment.Case.CaseGroup.CollectionExerciseID)
 		if err != nil {
-			w.WriteHeader(http.StatusNotFound)
+			w.WriteHeader(http.StatusInternalServerError)
 			errorString := models.Error{
 				Error: "Couldn't communicate with Collection Exercise service: " + err.Error(),
 			}
@@ -368,7 +368,7 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 	defer businessQuery.Close()
 	rows, err := businessQuery.Query(pq.Array(businessIDs))
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
+		w.WriteHeader(http.StatusInternalServerError)
 		errorString := models.Error{
 			Error: "Error querying DB: " + err.Error(),
 		}
@@ -388,7 +388,7 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 
 	tx, err := db.Begin()
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
+		w.WriteHeader(http.StatusInternalServerError)
 		errorString := models.Error{
 			Error: "Error creating DB transaction: " + err.Error(),
 		}
@@ -398,7 +398,7 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 
 	insertRespondent, err := tx.Prepare("INSERT INTO partysvc.respondent (id, status, email_address, first_name, last_name, telephone, created_on) VALUES ($1,$2,$3,$4,$5,$6,$7)")
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
+		w.WriteHeader(http.StatusInternalServerError)
 		errorString := models.Error{
 			Error: "Error creating DB prepared statement: " + err.Error(),
 		}
@@ -425,7 +425,7 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 
 	insertBusinessRespondent, err := tx.Prepare(pq.CopyIn("partysvc.respondent", "business_id", "respondent_id", "status", "effective_from", "created_on"))
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
+		w.WriteHeader(http.StatusInternalServerError)
 		errorString := models.Error{
 			Error: "Error creating DB prepared statement: " + err.Error(),
 		}

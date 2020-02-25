@@ -123,54 +123,6 @@ func TestGetRespondentsReturns401WhenNotAuthed(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, resp.Code)
 }
 
-func TestGetRespondentsReturns404WhenDBNotInit(t *testing.T) {
-	// It shouldn't be possible to start the app without a DB, but just in case
-	setup()
-	toggleFeature("party.api.get.respondents", true)
-	db = nil
-
-	req := httptest.NewRequest("GET", "/v2/respondents?firstName=Bob", nil)
-	req.SetBasicAuth("admin", "secret")
-	router.ServeHTTP(resp, req)
-
-	var errResp models.Error
-	err := json.NewDecoder(resp.Body).Decode(&errResp)
-	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
-	}
-
-	assert.Equal(t, http.StatusNotFound, resp.Code)
-	assert.Equal(t, "Database connection could not be found", errResp.Error)
-}
-
-func TestGetRespondentsReturns404WhenDBDown(t *testing.T) {
-	setup()
-	toggleFeature("party.api.get.respondents", true)
-
-	var mock sqlmock.Sqlmock
-	var err error
-
-	db, mock, err = sqlmock.New()
-	if err != nil {
-		log.Fatalf("Error setting up an SQL mock")
-	}
-
-	mock.ExpectQuery(searchQueryRegex).WillReturnError(fmt.Errorf("Connection refused"))
-
-	req := httptest.NewRequest("GET", "/v2/respondents?firstName=Bob", nil)
-	req.SetBasicAuth("admin", "secret")
-	router.ServeHTTP(resp, req)
-
-	var errResp models.Error
-	err = json.NewDecoder(resp.Body).Decode(&errResp)
-	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
-	}
-
-	assert.Equal(t, http.StatusNotFound, resp.Code)
-	assert.Equal(t, "Error querying DB: Connection refused", errResp.Error)
-}
-
 func TestGetRespondentsReturns404WhenNoResults(t *testing.T) {
 	setup()
 	toggleFeature("party.api.get.respondents", true)
@@ -197,6 +149,53 @@ func TestGetRespondentsReturns404WhenNoResults(t *testing.T) {
 
 	assert.Equal(t, http.StatusNotFound, resp.Code)
 	assert.Equal(t, "No respondents found", errResp.Error)
+}
+func TestGetRespondentsReturns500WhenDBNotInit(t *testing.T) {
+	// It shouldn't be possible to start the app without a DB, but just in case
+	setup()
+	toggleFeature("party.api.get.respondents", true)
+	db = nil
+
+	req := httptest.NewRequest("GET", "/v2/respondents?firstName=Bob", nil)
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err := json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "Database connection could not be found", errResp.Error)
+}
+
+func TestGetRespondentsReturns500WhenDBDown(t *testing.T) {
+	setup()
+	toggleFeature("party.api.get.respondents", true)
+
+	var mock sqlmock.Sqlmock
+	var err error
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	mock.ExpectQuery(searchQueryRegex).WillReturnError(fmt.Errorf("Connection refused"))
+
+	req := httptest.NewRequest("GET", "/v2/respondents?firstName=Bob", nil)
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "Error querying DB: Connection refused", errResp.Error)
 }
 
 // POST /respondents
@@ -368,337 +367,6 @@ func TestPostRespondentsReturns401WhenNotAuthed(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, resp.Code)
 }
 
-func TestPostRespondentsReturns404WhenDBNotInit(t *testing.T) {
-	// It shouldn't be possible to start the app without a DB, but just in case
-	setup()
-	toggleFeature("party.api.post.respondents", true)
-	db = nil
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
-
-	jsonOut, err := json.Marshal(postReq)
-	if err != nil {
-		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
-	}
-
-	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
-	req.SetBasicAuth("admin", "secret")
-	router.ServeHTTP(resp, req)
-
-	var errResp models.Error
-	err = json.NewDecoder(resp.Body).Decode(&errResp)
-	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
-	}
-
-	assert.Equal(t, http.StatusNotFound, resp.Code)
-	assert.Equal(t, "Database connection could not be found", errResp.Error)
-}
-
-func TestPostRespondentsReturns404WhenDBDown(t *testing.T) {
-	setup()
-	toggleFeature("party.api.post.respondents", true)
-	defer gock.Off()
-	var mock sqlmock.Sqlmock
-	var err error
-
-	db, mock, err = sqlmock.New()
-	if err != nil {
-		log.Fatalf("Error setting up an SQL mock")
-	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
-
-	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
-		IAC:         "abc1234",
-		Active:      true,
-		LastUsed:    "2017-05-15T10:00:00Z",
-		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
-		QuestionSet: "H1"})
-
-	gock.New("http://localhost:8171").Get("/cases/7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb").Reply(200).JSON(models.Case{
-		ID:         "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
-		BusinessID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
-		CaseGroup: models.CaseGroup{
-			ID:                   "aa9c8e93-5cd9-4876-a2d3-78a87b972134",
-			CollectionExerciseID: "1010b2f2-8668-498a-afee-3c33cdfe42ea",
-		},
-	})
-
-	gock.New("http://localhost:8145").Get("/collectionexercises/1010b2f2-8668-498a-afee-3c33cdfe42ea").Reply(200).JSON(models.CollectionExercise{
-		ID:       "1010b2f2-8668-498a-afee-3c33cdfe42ea",
-		SurveyID: "0752a892-1a60-40a4-8aa3-2599405a8831",
-	})
-
-	jsonOut, err := json.Marshal(postReq)
-	if err != nil {
-		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
-	}
-
-	mock.ExpectPrepare(searchBusinessesQueryRegex).ExpectQuery().WithArgs(pq.Array([]string{"ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2"})).WillReturnError(fmt.Errorf("Connection refused"))
-
-	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
-	req.SetBasicAuth("admin", "secret")
-	router.ServeHTTP(resp, req)
-
-	var errResp models.Error
-	err = json.NewDecoder(resp.Body).Decode(&errResp)
-	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
-	}
-
-	assert.Equal(t, http.StatusNotFound, resp.Code)
-	assert.Equal(t, "Error querying DB: Connection refused", errResp.Error)
-	assert.True(t, gock.IsDone())
-}
-
-func TestPostRespondentsReturns404IfDBTransactionCouldntBegin(t *testing.T) {
-	setup()
-	toggleFeature("party.api.post.respondents", true)
-	defer gock.Off()
-	var mock sqlmock.Sqlmock
-	var err error
-
-	db, mock, err = sqlmock.New()
-	if err != nil {
-		log.Fatalf("Error setting up an SQL mock")
-	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
-
-	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
-		IAC:         "abc1234",
-		Active:      true,
-		LastUsed:    "2017-05-15T10:00:00Z",
-		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
-		QuestionSet: "H1"})
-
-	gock.New("http://localhost:8171").Get("/cases/7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb").Reply(200).JSON(models.Case{
-		ID:         "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
-		BusinessID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
-		CaseGroup: models.CaseGroup{
-			ID:                   "aa9c8e93-5cd9-4876-a2d3-78a87b972134",
-			CollectionExerciseID: "1010b2f2-8668-498a-afee-3c33cdfe42ea",
-		},
-	})
-
-	gock.New("http://localhost:8145").Get("/collectionexercises/1010b2f2-8668-498a-afee-3c33cdfe42ea").Reply(200).JSON(models.CollectionExercise{
-		ID:       "1010b2f2-8668-498a-afee-3c33cdfe42ea",
-		SurveyID: "0752a892-1a60-40a4-8aa3-2599405a8831",
-	})
-
-	jsonOut, err := json.Marshal(postReq)
-	if err != nil {
-		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
-	}
-
-	businessRows := mock.NewRows(searchBusinessesQueryColumns)
-	businessRows.AddRow("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2")
-
-	mock.ExpectPrepare(searchBusinessesQueryRegex).ExpectQuery().WithArgs(pq.Array([]string{"ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2"})).WillReturnRows(businessRows)
-
-	mock.ExpectBegin().WillReturnError(fmt.Errorf("Transaction failed"))
-	mock.ExpectClose()
-
-	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
-	req.SetBasicAuth("admin", "secret")
-	router.ServeHTTP(resp, req)
-
-	var errResp models.Error
-	err = json.NewDecoder(resp.Body).Decode(&errResp)
-	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
-	}
-
-	assert.Equal(t, http.StatusNotFound, resp.Code)
-	assert.Equal(t, "Error creating DB transaction: Transaction failed", errResp.Error)
-	assert.True(t, gock.IsDone())
-}
-
-func TestPostRespondentsReturns404IfInsertRespondentPreparedStatementFails(t *testing.T) {
-	setup()
-	toggleFeature("party.api.post.respondents", true)
-	defer gock.Off()
-	var mock sqlmock.Sqlmock
-	var err error
-
-	db, mock, err = sqlmock.New()
-	if err != nil {
-		log.Fatalf("Error setting up an SQL mock")
-	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
-
-	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
-		IAC:         "abc1234",
-		Active:      true,
-		LastUsed:    "2017-05-15T10:00:00Z",
-		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
-		QuestionSet: "H1"})
-
-	gock.New("http://localhost:8171").Get("/cases/7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb").Reply(200).JSON(models.Case{
-		ID:         "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
-		BusinessID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
-		CaseGroup: models.CaseGroup{
-			ID:                   "aa9c8e93-5cd9-4876-a2d3-78a87b972134",
-			CollectionExerciseID: "1010b2f2-8668-498a-afee-3c33cdfe42ea",
-		},
-	})
-
-	gock.New("http://localhost:8145").Get("/collectionexercises/1010b2f2-8668-498a-afee-3c33cdfe42ea").Reply(200).JSON(models.CollectionExercise{
-		ID:       "1010b2f2-8668-498a-afee-3c33cdfe42ea",
-		SurveyID: "0752a892-1a60-40a4-8aa3-2599405a8831",
-	})
-
-	jsonOut, err := json.Marshal(postReq)
-	if err != nil {
-		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
-	}
-
-	businessRows := mock.NewRows(searchBusinessesQueryColumns)
-	businessRows.AddRow("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2")
-
-	mock.ExpectPrepare(searchBusinessesQueryRegex).ExpectQuery().WithArgs(pq.Array([]string{"ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2"})).WillReturnRows(businessRows)
-
-	mock.ExpectBegin()
-	mock.ExpectPrepare(insertQueryRegex).WillReturnError(fmt.Errorf("Syntax error"))
-	mock.ExpectClose()
-
-	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
-	req.SetBasicAuth("admin", "secret")
-	router.ServeHTTP(resp, req)
-
-	var errResp models.Error
-	err = json.NewDecoder(resp.Body).Decode(&errResp)
-	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
-	}
-
-	assert.Equal(t, http.StatusNotFound, resp.Code)
-	assert.Equal(t, "Error creating DB prepared statement: Syntax error", errResp.Error)
-	assert.True(t, gock.IsDone())
-}
-
-func TestPostRespondentsReturns404IfInsertBusinessRespondentPreparedStatementFails(t *testing.T) {
-	setup()
-	toggleFeature("party.api.post.respondents", true)
-	defer gock.Off()
-	var mock sqlmock.Sqlmock
-	var err error
-
-	db, mock, err = sqlmock.New()
-	if err != nil {
-		log.Fatalf("Error setting up an SQL mock")
-	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
-
-	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
-		IAC:         "abc1234",
-		Active:      true,
-		LastUsed:    "2017-05-15T10:00:00Z",
-		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
-		QuestionSet: "H1"})
-
-	gock.New("http://localhost:8171").Get("/cases/7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb").Reply(200).JSON(models.Case{
-		ID:         "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
-		BusinessID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
-		CaseGroup: models.CaseGroup{
-			ID:                   "aa9c8e93-5cd9-4876-a2d3-78a87b972134",
-			CollectionExerciseID: "1010b2f2-8668-498a-afee-3c33cdfe42ea",
-		},
-	})
-
-	gock.New("http://localhost:8145").Get("/collectionexercises/1010b2f2-8668-498a-afee-3c33cdfe42ea").Reply(200).JSON(models.CollectionExercise{
-		ID:       "1010b2f2-8668-498a-afee-3c33cdfe42ea",
-		SurveyID: "0752a892-1a60-40a4-8aa3-2599405a8831",
-	})
-
-	jsonOut, err := json.Marshal(postReq)
-	if err != nil {
-		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
-	}
-
-	businessRows := mock.NewRows(searchBusinessesQueryColumns)
-	businessRows.AddRow("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2")
-
-	mock.ExpectPrepare(searchBusinessesQueryRegex).ExpectQuery().WithArgs(pq.Array([]string{"ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2"})).WillReturnRows(businessRows)
-
-	mock.ExpectBegin()
-	mock.ExpectPrepare(insertQueryRegex).ExpectExec().WithArgs(AnyUUID{}, "CREATED", postReq.Data.Attributes.EmailAddress, postReq.Data.Attributes.FirstName,
-		postReq.Data.Attributes.LastName, postReq.Data.Attributes.Telephone, AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
-	mock.ExpectPrepare(copyQueryRegex).WillReturnError(fmt.Errorf("Syntax error"))
-	mock.ExpectCommit()
-	mock.ExpectClose()
-
-	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
-	req.SetBasicAuth("admin", "secret")
-	router.ServeHTTP(resp, req)
-
-	var errResp models.Error
-	err = json.NewDecoder(resp.Body).Decode(&errResp)
-	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
-	}
-
-	assert.Equal(t, http.StatusNotFound, resp.Code)
-	assert.Equal(t, "Error creating DB prepared statement: Syntax error", errResp.Error)
-	assert.True(t, gock.IsDone())
-}
-
 func TestPostRespondentsReturns404IfEnrolmentCodeNotFound(t *testing.T) {
 	setup()
 	toggleFeature("party.api.post.respondents", true)
@@ -742,51 +410,6 @@ func TestPostRespondentsReturns404IfEnrolmentCodeNotFound(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, resp.Code)
 	assert.Equal(t, "Enrolment code not found: abc1234", errResp.Error)
 	assert.True(t, gock.IsDone())
-}
-
-func TestPostRespondentsReturns404IfIACCommunicationsFail(t *testing.T) {
-	// By not setting up the mock properly, we can effectively test an err in http.Get
-	setup()
-	toggleFeature("party.api.post.respondents", true)
-	defer gock.Off()
-	var err error
-
-	db, _, err = sqlmock.New()
-	if err != nil {
-		log.Fatalf("Error setting up an SQL mock")
-	}
-
-	gock.New("http://iac-service").Get("/").Reply(200)
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
-
-	jsonOut, err := json.Marshal(postReq)
-	if err != nil {
-		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
-	}
-
-	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
-	req.SetBasicAuth("admin", "secret")
-	router.ServeHTTP(resp, req)
-
-	var errResp models.Error
-	err = json.NewDecoder(resp.Body).Decode(&errResp)
-	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
-	}
-
-	assert.Equal(t, http.StatusNotFound, resp.Code)
-	assert.Contains(t, errResp.Error, "Couldn't communicate with IAC service:")
 }
 
 func TestPostRespondentsReturns404IfCaseNotFound(t *testing.T) {
@@ -839,58 +462,6 @@ func TestPostRespondentsReturns404IfCaseNotFound(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, resp.Code)
 	assert.Equal(t, "Case not found for enrolment code: abc1234", errResp.Error)
 	assert.True(t, gock.IsDone())
-}
-
-func TestPostRespondentsReturns404IfCaseCommunicationsFail(t *testing.T) {
-	// By not setting up the mock properly, we can effectively test an err in http.Get
-	setup()
-	toggleFeature("party.api.post.respondents", true)
-	defer gock.Off()
-	var err error
-
-	db, _, err = sqlmock.New()
-	if err != nil {
-		log.Fatalf("Error setting up an SQL mock")
-	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
-
-	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
-		IAC:         "abc1234",
-		Active:      true,
-		LastUsed:    "2017-05-15T10:00:00Z",
-		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
-		QuestionSet: "H1"})
-
-	gock.New("http://case-service").Get("/").Reply(200)
-
-	jsonOut, err := json.Marshal(postReq)
-	if err != nil {
-		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
-	}
-
-	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
-	req.SetBasicAuth("admin", "secret")
-	router.ServeHTTP(resp, req)
-
-	var errResp models.Error
-	err = json.NewDecoder(resp.Body).Decode(&errResp)
-	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
-	}
-
-	assert.Equal(t, http.StatusNotFound, resp.Code)
-	assert.Contains(t, errResp.Error, "Couldn't communicate with Case service:")
 }
 
 func TestPostRespondentsReturns404IfCollectionExerciseNotFound(t *testing.T) {
@@ -952,67 +523,6 @@ func TestPostRespondentsReturns404IfCollectionExerciseNotFound(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, resp.Code)
 	assert.Equal(t, "Collection Exercise not found for enrolment code: abc1234", errResp.Error)
 	assert.True(t, gock.IsDone())
-}
-
-func TestPostRespondentsReturns404IfCollectionExerciseCommunicationsFail(t *testing.T) {
-	// By not setting up the mock properly, we can effectively test an err in http.Get
-	setup()
-	toggleFeature("party.api.post.respondents", true)
-	defer gock.Off()
-	var err error
-
-	db, _, err = sqlmock.New()
-	if err != nil {
-		log.Fatalf("Error setting up an SQL mock")
-	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
-
-	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
-		IAC:         "abc1234",
-		Active:      true,
-		LastUsed:    "2017-05-15T10:00:00Z",
-		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
-		QuestionSet: "H1"})
-
-	gock.New("http://localhost:8171").Get("/cases/7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb").Reply(200).JSON(models.Case{
-		ID:         "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
-		BusinessID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
-		CaseGroup: models.CaseGroup{
-			ID:                   "aa9c8e93-5cd9-4876-a2d3-78a87b972134",
-			CollectionExerciseID: "1010b2f2-8668-498a-afee-3c33cdfe42ea",
-		},
-	})
-
-	gock.New("collection-exercise-service").Get("/").Reply(200)
-
-	jsonOut, err := json.Marshal(postReq)
-	if err != nil {
-		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
-	}
-
-	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
-	req.SetBasicAuth("admin", "secret")
-	router.ServeHTTP(resp, req)
-
-	var errResp models.Error
-	err = json.NewDecoder(resp.Body).Decode(&errResp)
-	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
-	}
-
-	assert.Equal(t, http.StatusNotFound, resp.Code)
-	assert.Contains(t, errResp.Error, "Couldn't communicate with Collection Exercise service:")
 }
 
 func TestPostRespondentsReturns422IfEnrolmentCodeInactive(t *testing.T) {
@@ -1363,5 +873,491 @@ func TestPostRespondentsReturns422IfBusinessRespondentCouldntBeCommitted(t *test
 
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
 	assert.Equal(t, "Can't commit business/respondent links with respondent ID be70e086-7bbc-461c-a565-5b454d748a71: Foreign key violation", errResp.Error)
+	assert.True(t, gock.IsDone())
+}
+
+func TestPostRespondentsReturns500WhenDBNotInit(t *testing.T) {
+	// It shouldn't be possible to start the app without a DB, but just in case
+	setup()
+	toggleFeature("party.api.post.respondents", true)
+	db = nil
+
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234"}}
+
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+	}
+
+	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "Database connection could not be found", errResp.Error)
+}
+
+func TestPostRespondentsReturns500WhenDBDown(t *testing.T) {
+	setup()
+	toggleFeature("party.api.post.respondents", true)
+	defer gock.Off()
+	var mock sqlmock.Sqlmock
+	var err error
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234"}}
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
+		IAC:         "abc1234",
+		Active:      true,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		QuestionSet: "H1"})
+
+	gock.New("http://localhost:8171").Get("/cases/7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb").Reply(200).JSON(models.Case{
+		ID:         "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		BusinessID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		CaseGroup: models.CaseGroup{
+			ID:                   "aa9c8e93-5cd9-4876-a2d3-78a87b972134",
+			CollectionExerciseID: "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		},
+	})
+
+	gock.New("http://localhost:8145").Get("/collectionexercises/1010b2f2-8668-498a-afee-3c33cdfe42ea").Reply(200).JSON(models.CollectionExercise{
+		ID:       "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		SurveyID: "0752a892-1a60-40a4-8aa3-2599405a8831",
+	})
+
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+	}
+
+	mock.ExpectPrepare(searchBusinessesQueryRegex).ExpectQuery().WithArgs(pq.Array([]string{"ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2"})).WillReturnError(fmt.Errorf("Connection refused"))
+
+	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "Error querying DB: Connection refused", errResp.Error)
+	assert.True(t, gock.IsDone())
+}
+
+func TestPostRespondentsReturns500IfIACCommunicationsFail(t *testing.T) {
+	// By not setting up the mock properly, we can effectively test an err in http.Get
+	setup()
+	toggleFeature("party.api.post.respondents", true)
+	defer gock.Off()
+	var err error
+
+	db, _, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	gock.New("http://iac-service").Get("/").Reply(200)
+
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234"}}
+
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+	}
+
+	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Contains(t, errResp.Error, "Couldn't communicate with IAC service:")
+}
+func TestPostRespondentsReturns500IfCaseCommunicationsFail(t *testing.T) {
+	// By not setting up the mock properly, we can effectively test an err in http.Get
+	setup()
+	toggleFeature("party.api.post.respondents", true)
+	defer gock.Off()
+	var err error
+
+	db, _, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234"}}
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
+		IAC:         "abc1234",
+		Active:      true,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		QuestionSet: "H1"})
+
+	gock.New("http://case-service").Get("/").Reply(200)
+
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+	}
+
+	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Contains(t, errResp.Error, "Couldn't communicate with Case service:")
+}
+func TestPostRespondentsReturns500IfCollectionExerciseCommunicationsFail(t *testing.T) {
+	// By not setting up the mock properly, we can effectively test an err in http.Get
+	setup()
+	toggleFeature("party.api.post.respondents", true)
+	defer gock.Off()
+	var err error
+
+	db, _, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234"}}
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
+		IAC:         "abc1234",
+		Active:      true,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		QuestionSet: "H1"})
+
+	gock.New("http://localhost:8171").Get("/cases/7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb").Reply(200).JSON(models.Case{
+		ID:         "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		BusinessID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		CaseGroup: models.CaseGroup{
+			ID:                   "aa9c8e93-5cd9-4876-a2d3-78a87b972134",
+			CollectionExerciseID: "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		},
+	})
+
+	gock.New("collection-exercise-service").Get("/").Reply(200)
+
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+	}
+
+	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Contains(t, errResp.Error, "Couldn't communicate with Collection Exercise service:")
+}
+func TestPostRespondentsReturns500IfDBTransactionCouldntBegin(t *testing.T) {
+	setup()
+	toggleFeature("party.api.post.respondents", true)
+	defer gock.Off()
+	var mock sqlmock.Sqlmock
+	var err error
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234"}}
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
+		IAC:         "abc1234",
+		Active:      true,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		QuestionSet: "H1"})
+
+	gock.New("http://localhost:8171").Get("/cases/7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb").Reply(200).JSON(models.Case{
+		ID:         "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		BusinessID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		CaseGroup: models.CaseGroup{
+			ID:                   "aa9c8e93-5cd9-4876-a2d3-78a87b972134",
+			CollectionExerciseID: "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		},
+	})
+
+	gock.New("http://localhost:8145").Get("/collectionexercises/1010b2f2-8668-498a-afee-3c33cdfe42ea").Reply(200).JSON(models.CollectionExercise{
+		ID:       "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		SurveyID: "0752a892-1a60-40a4-8aa3-2599405a8831",
+	})
+
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+	}
+
+	businessRows := mock.NewRows(searchBusinessesQueryColumns)
+	businessRows.AddRow("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2")
+
+	mock.ExpectPrepare(searchBusinessesQueryRegex).ExpectQuery().WithArgs(pq.Array([]string{"ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2"})).WillReturnRows(businessRows)
+
+	mock.ExpectBegin().WillReturnError(fmt.Errorf("Transaction failed"))
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "Error creating DB transaction: Transaction failed", errResp.Error)
+	assert.True(t, gock.IsDone())
+}
+
+func TestPostRespondentsReturns500IfInsertRespondentPreparedStatementFails(t *testing.T) {
+	setup()
+	toggleFeature("party.api.post.respondents", true)
+	defer gock.Off()
+	var mock sqlmock.Sqlmock
+	var err error
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234"}}
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
+		IAC:         "abc1234",
+		Active:      true,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		QuestionSet: "H1"})
+
+	gock.New("http://localhost:8171").Get("/cases/7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb").Reply(200).JSON(models.Case{
+		ID:         "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		BusinessID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		CaseGroup: models.CaseGroup{
+			ID:                   "aa9c8e93-5cd9-4876-a2d3-78a87b972134",
+			CollectionExerciseID: "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		},
+	})
+
+	gock.New("http://localhost:8145").Get("/collectionexercises/1010b2f2-8668-498a-afee-3c33cdfe42ea").Reply(200).JSON(models.CollectionExercise{
+		ID:       "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		SurveyID: "0752a892-1a60-40a4-8aa3-2599405a8831",
+	})
+
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+	}
+
+	businessRows := mock.NewRows(searchBusinessesQueryColumns)
+	businessRows.AddRow("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2")
+
+	mock.ExpectPrepare(searchBusinessesQueryRegex).ExpectQuery().WithArgs(pq.Array([]string{"ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2"})).WillReturnRows(businessRows)
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(insertQueryRegex).WillReturnError(fmt.Errorf("Syntax error"))
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "Error creating DB prepared statement: Syntax error", errResp.Error)
+	assert.True(t, gock.IsDone())
+}
+
+func TestPostRespondentsReturns500IfInsertBusinessRespondentPreparedStatementFails(t *testing.T) {
+	setup()
+	toggleFeature("party.api.post.respondents", true)
+	defer gock.Off()
+	var mock sqlmock.Sqlmock
+	var err error
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234"}}
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
+		IAC:         "abc1234",
+		Active:      true,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		QuestionSet: "H1"})
+
+	gock.New("http://localhost:8171").Get("/cases/7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb").Reply(200).JSON(models.Case{
+		ID:         "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		BusinessID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		CaseGroup: models.CaseGroup{
+			ID:                   "aa9c8e93-5cd9-4876-a2d3-78a87b972134",
+			CollectionExerciseID: "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		},
+	})
+
+	gock.New("http://localhost:8145").Get("/collectionexercises/1010b2f2-8668-498a-afee-3c33cdfe42ea").Reply(200).JSON(models.CollectionExercise{
+		ID:       "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		SurveyID: "0752a892-1a60-40a4-8aa3-2599405a8831",
+	})
+
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+	}
+
+	businessRows := mock.NewRows(searchBusinessesQueryColumns)
+	businessRows.AddRow("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2")
+
+	mock.ExpectPrepare(searchBusinessesQueryRegex).ExpectQuery().WithArgs(pq.Array([]string{"ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2"})).WillReturnRows(businessRows)
+
+	mock.ExpectBegin()
+	mock.ExpectPrepare(insertQueryRegex).ExpectExec().WithArgs(AnyUUID{}, "CREATED", postReq.Data.Attributes.EmailAddress, postReq.Data.Attributes.FirstName,
+		postReq.Data.Attributes.LastName, postReq.Data.Attributes.Telephone, AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectPrepare(copyQueryRegex).WillReturnError(fmt.Errorf("Syntax error"))
+	mock.ExpectCommit()
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "Error creating DB prepared statement: Syntax error", errResp.Error)
 	assert.True(t, gock.IsDone())
 }
