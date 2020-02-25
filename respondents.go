@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -535,6 +537,23 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		json.NewEncoder(w).Encode(errorString)
 		tx.Rollback()
 		return
+	}
+
+	// Deactivate the enrolment codes
+	for _, code := range postRequest.EnrolmentCodes {
+		// IAC service
+		body := bytes.NewBuffer([]byte(`{"updatedBy": "Party Service"}`))
+		req, _ := http.NewRequest(http.MethodPut, viper.GetString("iac_service")+"/"+code, body)
+		resp, err := http.DefaultClient.Do(req)
+		// It's fine if this fails - log the error and move on. We should still give a 200 OK response
+		if err != nil {
+			log.Println("Error deactivating enrolment code " + code + ": " + err.Error())
+			continue
+		}
+		if resp.StatusCode != http.StatusOK {
+			log.Println("Error deactivating enrolment code " + code + ": Received status code " + strconv.Itoa(resp.StatusCode) + " from IAC service")
+			continue
+		}
 	}
 
 	w.WriteHeader(http.StatusCreated)
