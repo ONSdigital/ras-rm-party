@@ -482,6 +482,7 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 	}
 	defer insertEnrolment.Close()
 
+	newAssociations := []models.Association{}
 	for _, enrolment := range enrolments {
 		_, err := insertPendingEnrolment.Exec(enrolment.Case.ID, respondentID, enrolment.Case.BusinessID, enrolment.SurveyID, time.Now())
 		if err != nil {
@@ -491,7 +492,6 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 			}
 			json.NewEncoder(w).Encode(errorString)
 			tx.Rollback()
-			log.Println(err)
 			return
 		}
 
@@ -504,6 +504,26 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 			json.NewEncoder(w).Encode(errorString)
 			tx.Rollback()
 			return
+		}
+
+		found := false
+		newEnrolment := models.Enrolment{
+			EnrolmentStatus: "PENDING",
+			SurveyID:        enrolment.SurveyID,
+		}
+		for idx := range newAssociations {
+			if newAssociations[idx].ID == enrolment.Case.BusinessID {
+				found = true
+				newAssociations[idx].Enrolments = append(newAssociations[idx].Enrolments, newEnrolment)
+			}
+		}
+		if !found {
+			newAssociations = append(newAssociations, models.Association{
+				ID: enrolment.Case.BusinessID,
+				Enrolments: []models.Enrolment{
+					newEnrolment,
+				},
+			})
 		}
 	}
 
@@ -556,6 +576,21 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		}
 	}
 
+	response := models.Respondents{
+		Data: []models.Respondent{
+			models.Respondent{
+				Attributes: models.Attributes{
+					ID:           respondentID,
+					EmailAddress: postRequest.Data.Attributes.EmailAddress,
+					FirstName:    postRequest.Data.Attributes.FirstName,
+					LastName:     postRequest.Data.Attributes.LastName,
+					Telephone:    postRequest.Data.Attributes.Telephone,
+				},
+				Status:       "ACTIVE",
+				Associations: newAssociations,
+			}}}
+
 	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(response)
 	return
 }
