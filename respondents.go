@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -359,7 +360,7 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		}
 
 		collectionExercise := models.CollectionExercise{}
-		json.NewDecoder(resp.Body).Decode(&enrolment)
+		json.NewDecoder(resp.Body).Decode(&collectionExercise)
 		enrolment.SurveyID = collectionExercise.SurveyID
 	}
 
@@ -405,6 +406,7 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		json.NewEncoder(w).Encode(errorString)
 		return
 	}
+
 	respondentID := postRequest.Data.Attributes.ID
 	if respondentID == "" {
 		respondentID = uuid.New().String()
@@ -456,8 +458,84 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		return
 	}
 
-	// TODO: add error handling
-	tx.Commit()
+	insertPendingEnrolment, err := tx.Prepare(pq.CopyIn("partysvc.pending_enrolment", "case_id", "respondent_id", "business_id", "survey_id", "created_on"))
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		errorString := models.Error{
+			Error: "Error creating DB prepared statement: " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+	defer insertPendingEnrolment.Close()
+
+	insertEnrolment, err := tx.Prepare(pq.CopyIn("partysvc.enrolment", "respondent_id", "business_id", "survey_id", "status", "created_on"))
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		errorString := models.Error{
+			Error: "Error creating DB prepared statement: " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+	defer insertEnrolment.Close()
+
+	for _, enrolment := range enrolments {
+		_, err := insertPendingEnrolment.Exec(enrolment.Case.ID, respondentID, enrolment.Case.BusinessID, enrolment.SurveyID, time.Now())
+		if err != nil {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			errorString := models.Error{
+				Error: "Can't create a Pending Enrolment with respondent ID " + respondentID + " and business ID " + enrolment.Case.BusinessID + ": " + err.Error(),
+			}
+			json.NewEncoder(w).Encode(errorString)
+			tx.Rollback()
+			log.Println(err)
+			return
+		}
+
+		_, err = insertEnrolment.Exec(respondentID, enrolment.Case.BusinessID, enrolment.SurveyID, "PENDING", time.Now())
+		if err != nil {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			errorString := models.Error{
+				Error: "Can't create an Enrolment with respondent ID " + respondentID + " and business ID " + enrolment.Case.BusinessID + ": " + err.Error(),
+			}
+			json.NewEncoder(w).Encode(errorString)
+			tx.Rollback()
+			return
+		}
+	}
+
+	_, err = insertPendingEnrolment.Exec()
+	if err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		errorString := models.Error{
+			Error: "Can't commit pending enrolments with respondent ID " + respondentID + ": " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		tx.Rollback()
+		return
+	}
+	_, err = insertEnrolment.Exec()
+	if err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		errorString := models.Error{
+			Error: "Can't commit enrolments with respondent ID " + respondentID + ": " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		tx.Rollback()
+		return
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		errorString := models.Error{
+			Error: "Can't commit database transaction for respondent ID " + respondentID + ": " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		tx.Rollback()
+		return
+	}
 
 	w.WriteHeader(http.StatusCreated)
 	return
