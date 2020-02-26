@@ -2211,6 +2211,24 @@ func TestDeleteRespondentsByID(t *testing.T) {
 	assert.Equal(t, http.StatusNoContent, resp.Code)
 }
 
+func TestDeleteRespondentsByIDReturns400IfPassedANonUUID(t *testing.T) {
+	setup()
+	toggleFeature("party.api.delete.respondents", true)
+
+	req := httptest.NewRequest("DELETE", "/v2/respondents/abc123", nil)
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err := json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
+	assert.Equal(t, "Not a valid ID: abc123", errResp.Error)
+}
+
 func TestDeleteRespondentsByIDReturns500WhenDBNotInit(t *testing.T) {
 	// It shouldn't be possible to start the app without a DB, but just in case
 	setup()
