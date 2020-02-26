@@ -474,7 +474,7 @@ components:
               error:
                 type: string
                 example: Business does not exist
-    CommuinicationError:
+    CommunicationError:
       description: There were problems communicating with another service or the database.
       content:
         application/json:
