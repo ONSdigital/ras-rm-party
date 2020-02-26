@@ -2194,3 +2194,39 @@ func TestDeleteRespondentsByIDIsFeatureFlagged(t *testing.T) {
 
 	assert.Equal(t, http.StatusMethodNotAllowed, resp.Code)
 }
+
+func TestDeleteRespondentsByID(t *testing.T) {
+	setup()
+	toggleFeature("party.api.delete.respondents", true)
+	var err error
+	db, _, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	req := httptest.NewRequest("DELETE", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusNoContent, resp.Code)
+}
+
+func TestDeleteRespondentsByIDReturns500WhenDBNotInit(t *testing.T) {
+	// It shouldn't be possible to start the app without a DB, but just in case
+	setup()
+	toggleFeature("party.api.delete.respondents", true)
+	db = nil
+
+	req := httptest.NewRequest("DELETE", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err := json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "Database connection could not be found", errResp.Error)
+}

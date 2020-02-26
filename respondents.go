@@ -600,4 +600,16 @@ func deleteRespondents(w http.ResponseWriter, r *http.Request, p httprouter.Para
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
+
+	if db == nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		errorString := models.Error{
+			Error: "Database connection could not be found",
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+	return
 }
