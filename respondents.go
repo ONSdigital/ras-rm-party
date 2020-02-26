@@ -594,3 +594,10 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 	json.NewEncoder(w).Encode(response)
 	return
 }
+
+func deleteRespondents(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	if !unleash.IsEnabled("party.api.delete.respondents", unleash.WithFallback(false)) {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+}

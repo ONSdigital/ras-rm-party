@@ -2181,3 +2181,16 @@ func TestPostRespondentsReturns500IfInsertEnrolmentPreparedStatementFails(t *tes
 	assert.Equal(t, "Error creating DB prepared statement: Syntax error", errResp.Error)
 	assert.True(t, gock.IsDone())
 }
+
+func TestDeleteRespondentsByIDIsFeatureFlagged(t *testing.T) {
+	// Assure that it's properly feature flagged away
+	setDefaults()
+	setup()
+	toggleFeature("party.api.delete.respondents", false)
+
+	req := httptest.NewRequest("DELETE", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusMethodNotAllowed, resp.Code)
+}
