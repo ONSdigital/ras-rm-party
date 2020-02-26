@@ -2229,6 +2229,16 @@ func TestDeleteRespondentsByIDReturns400IfPassedANonUUID(t *testing.T) {
 	assert.Equal(t, "Not a valid ID: abc123", errResp.Error)
 }
 
+func TestDeleteRespondentsByIDReturns401WhenNotAuthed(t *testing.T) {
+	setup()
+	toggleFeature("party.api.delete.respondents", true)
+
+	req := httptest.NewRequest("DELETE", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusUnauthorized, resp.Code)
+}
+
 func TestDeleteRespondentsByIDReturns500WhenDBNotInit(t *testing.T) {
 	// It shouldn't be possible to start the app without a DB, but just in case
 	setup()
