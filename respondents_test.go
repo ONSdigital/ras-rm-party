@@ -17,8 +17,9 @@ import (
 	"gopkg.in/h2non/gock.v1"
 )
 
-var searchQueryRegex = "SELECT (.+) FROM partysvc.respondent JOIN partysvc.business_respondent br ON r.id=br.respondent_id JOIN partysvc.enrolment e ON br.business_id=e.business_id AND br.respondent_id=e.respondent_id*"
-var searchQueryColumns = []string{"id", "email_address", "first_name", "last_name", "telephone", "status", "business_id", "enrolment_status", "survey_id"}
+var searchQueryRegex = "SELECT (.+) FROM partysvc.respondent*"
+var searchRespondentQueryColumns = []string{"id", "email_address", "first_name", "last_name", "telephone", "status", "business_id", "enrolment_status", "survey_id"}
+var searchRespondentExistsQueryColumns = []string{"id"}
 var insertQueryRegex = "INSERT INTO (.+)*"
 var copyQueryRegex = "COPY (.+) FROM STDIN"
 var searchBusinessesQueryRegex = "SELECT (.+) FROM partysvc.business WHERE party_uuid=*"
@@ -50,7 +51,7 @@ func TestGetRespondents(t *testing.T) {
 		log.Fatalf("Error setting up an SQL mock")
 	}
 
-	returnRows := mock.NewRows(searchQueryColumns)
+	returnRows := mock.NewRows(searchRespondentQueryColumns)
 	returnRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71", "bob@boblaw.com", "Bob", "Boblaw", "01234567890", "ACTIVE", "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2", "ENABLED", "5e237abd-f8dc-4cb0-829e-58d5cef8ca4a")
 	returnRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71", "bob@boblaw.com", "Bob", "Boblaw", "01234567890", "ACTIVE", "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2", "DISABLED", "84bc0d0a-ae32-4fb1-aabc-6de370245d62")
 	returnRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71", "bob@boblaw.com", "Bob", "Boblaw", "01234567890", "ACTIVE", "2711912c-db86-4e1e-9728-fc28db049858", "ENABLED", "ba4274ac-a664-4c3d-8910-18b82a12ce09")
@@ -135,7 +136,7 @@ func TestGetRespondentsReturns404WhenNoResults(t *testing.T) {
 		log.Fatalf("Error setting up an SQL mock")
 	}
 
-	mock.ExpectQuery(searchQueryRegex).WillReturnRows(mock.NewRows(searchQueryColumns))
+	mock.ExpectQuery(searchQueryRegex).WillReturnRows(mock.NewRows(searchRespondentQueryColumns))
 
 	req := httptest.NewRequest("GET", "/v2/respondents?firstName=Bob", nil)
 	req.SetBasicAuth("admin", "secret")
@@ -2199,10 +2200,15 @@ func TestDeleteRespondentsByID(t *testing.T) {
 	setup()
 	toggleFeature("party.api.delete.respondents", true)
 	var err error
-	db, _, err = sqlmock.New()
+	var mock sqlmock.Sqlmock
+	db, mock, err = sqlmock.New()
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
+
+	rows := mock.NewRows(searchRespondentExistsQueryColumns)
+	rows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71")
+	mock.ExpectQuery(searchQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(rows)
 
 	req := httptest.NewRequest("DELETE", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
 	req.SetBasicAuth("admin", "secret")
@@ -2239,6 +2245,32 @@ func TestDeleteRespondentsByIDReturns401WhenNotAuthed(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, resp.Code)
 }
 
+func TestDeleteRespondentsByIDReturns404WhenRespondentNotFound(t *testing.T) {
+	setup()
+	toggleFeature("party.api.delete.respondents", true)
+	var err error
+	var mock sqlmock.Sqlmock
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	mock.ExpectQuery(searchQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(mock.NewRows(searchRespondentExistsQueryColumns))
+
+	req := httptest.NewRequest("DELETE", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusNotFound, resp.Code)
+	assert.Equal(t, "Respondent does not exist", errResp.Error)
+}
+
 func TestDeleteRespondentsByIDReturns500WhenDBNotInit(t *testing.T) {
 	// It shouldn't be possible to start the app without a DB, but just in case
 	setup()
@@ -2257,4 +2289,30 @@ func TestDeleteRespondentsByIDReturns500WhenDBNotInit(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 	assert.Equal(t, "Database connection could not be found", errResp.Error)
+}
+
+func TestDeleteRespondentsByIDReturns500WhenDBDown(t *testing.T) {
+	setup()
+	toggleFeature("party.api.delete.respondents", true)
+	var err error
+	var mock sqlmock.Sqlmock
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	mock.ExpectQuery(searchQueryRegex).WillReturnError(fmt.Errorf("Connection refused"))
+
+	req := httptest.NewRequest("DELETE", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "Error querying DB: Connection refused", errResp.Error)
 }
