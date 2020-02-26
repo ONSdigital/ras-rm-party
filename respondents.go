@@ -594,3 +594,51 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 	json.NewEncoder(w).Encode(response)
 	return
 }
+
+func deleteRespondents(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	if !unleash.IsEnabled("party.api.delete.respondents", unleash.WithFallback(false)) {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	respondentUUID, err := uuid.Parse(p.ByName("id"))
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		errorString := models.Error{
+			Error: "Not a valid ID: " + p.ByName("id"),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+
+	if db == nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		errorString := models.Error{
+			Error: "Database connection could not be found",
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+
+	var respondentID string
+	err = db.QueryRow("SELECT id FROM partysvc.respondents WHERE id=?", respondentUUID.String()).Scan(&respondentID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			w.WriteHeader(http.StatusNotFound)
+			errorString := models.Error{
+				Error: "Respondent does not exist",
+			}
+			json.NewEncoder(w).Encode(errorString)
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			errorString := models.Error{
+				Error: "Error querying DB: " + err.Error(),
+			}
+			json.NewEncoder(w).Encode(errorString)
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+	return
+}
