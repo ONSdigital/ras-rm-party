@@ -180,13 +180,15 @@ paths:
             example: 34597808-ec88-4e93-af2f-228e33ff7946
       responses:
         '204':
-          description: A request to delete was successfully accepted.
+          description: The respondent was successfully deleted.
         '400':
           $ref: '#/components/responses/MalformedIDError'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '404':
           $ref: '#/components/responses/RespondentNotFoundError'
+        '500':
+          description: There were problems communicating with the database.
     get:
       summary: Retrieves a respondent from the service.
       description: Retrieves a respondent by the ID provided.
