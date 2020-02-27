@@ -22,6 +22,7 @@ var searchRespondentQueryColumns = []string{"id", "email_address", "first_name",
 var searchRespondentExistsQueryColumns = []string{"id"}
 var insertQueryRegex = "INSERT INTO (.+)*"
 var copyQueryRegex = "COPY (.+) FROM STDIN"
+var deleteQueryRegex = "DELETE FROM (.+)*"
 var searchBusinessesQueryRegex = "SELECT (.+) FROM partysvc.business WHERE party_uuid=*"
 var searchBusinessesQueryColumns = []string{"party_uuid"}
 
@@ -2209,6 +2210,13 @@ func TestDeleteRespondentsByID(t *testing.T) {
 	rows := mock.NewRows(searchRespondentExistsQueryColumns)
 	rows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71")
 	mock.ExpectQuery(searchQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(rows)
+	mock.ExpectBegin()
+	mock.ExpectExec(deleteQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(deleteQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(deleteQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(deleteQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+	mock.ExpectClose()
 
 	req := httptest.NewRequest("DELETE", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
 	req.SetBasicAuth("admin", "secret")
@@ -2315,4 +2323,209 @@ func TestDeleteRespondentsByIDReturns500WhenDBDown(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 	assert.Equal(t, "Error querying DB: Connection refused", errResp.Error)
+}
+
+func TestDeleteRespondentsByIDReturns500IfDBTransactionCouldntBegin(t *testing.T) {
+	setup()
+	toggleFeature("party.api.delete.respondents", true)
+	defer gock.Off()
+	var err error
+	var mock sqlmock.Sqlmock
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	rows := mock.NewRows(searchRespondentExistsQueryColumns)
+	rows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71")
+	mock.ExpectQuery(searchQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(rows)
+	mock.ExpectBegin().WillReturnError(fmt.Errorf("Transaction failed"))
+
+	req := httptest.NewRequest("DELETE", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "Error creating DB transaction: Transaction failed", errResp.Error)
+}
+
+func TestDeleteRespondentsByIDReturns500IfDeletingEnrolmentsFails(t *testing.T) {
+	setup()
+	toggleFeature("party.api.delete.respondents", true)
+	defer gock.Off()
+	var err error
+	var mock sqlmock.Sqlmock
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	rows := mock.NewRows(searchRespondentExistsQueryColumns)
+	rows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71")
+	mock.ExpectQuery(searchQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(rows)
+	mock.ExpectBegin()
+	mock.ExpectExec(deleteQueryRegex).WillReturnError(fmt.Errorf("SQL error"))
+	mock.ExpectRollback()
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("DELETE", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "Error deleting enrolments for respondent ID be70e086-7bbc-461c-a565-5b454d748a71: SQL error", errResp.Error)
+}
+
+func TestDeleteRespondentsByIDReturns500IfDeletingBusinessRespondentFails(t *testing.T) {
+	setup()
+	toggleFeature("party.api.delete.respondents", true)
+	defer gock.Off()
+	var err error
+	var mock sqlmock.Sqlmock
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	rows := mock.NewRows(searchRespondentExistsQueryColumns)
+	rows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71")
+	mock.ExpectQuery(searchQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(rows)
+	mock.ExpectBegin()
+	mock.ExpectExec(deleteQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(deleteQueryRegex).WillReturnError(fmt.Errorf("SQL error"))
+	mock.ExpectRollback()
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("DELETE", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "Error deleting business respondent for respondent ID be70e086-7bbc-461c-a565-5b454d748a71: SQL error", errResp.Error)
+}
+
+func TestDeleteRespondentsByIDReturns500IfDeletingPendingEnrolmentsFails(t *testing.T) {
+	setup()
+	toggleFeature("party.api.delete.respondents", true)
+	defer gock.Off()
+	var err error
+	var mock sqlmock.Sqlmock
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	rows := mock.NewRows(searchRespondentExistsQueryColumns)
+	rows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71")
+	mock.ExpectQuery(searchQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(rows)
+	mock.ExpectBegin()
+	mock.ExpectExec(deleteQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(deleteQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(deleteQueryRegex).WillReturnError(fmt.Errorf("SQL error"))
+	mock.ExpectRollback()
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("DELETE", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "Error deleting pending enrolments for respondent ID be70e086-7bbc-461c-a565-5b454d748a71: SQL error", errResp.Error)
+}
+
+func TestDeleteRespondentsByIDReturns500IfDeletingRespondentFails(t *testing.T) {
+	setup()
+	toggleFeature("party.api.delete.respondents", true)
+	defer gock.Off()
+	var err error
+	var mock sqlmock.Sqlmock
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	rows := mock.NewRows(searchRespondentExistsQueryColumns)
+	rows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71")
+	mock.ExpectQuery(searchQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(rows)
+	mock.ExpectBegin()
+	mock.ExpectExec(deleteQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(deleteQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(deleteQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(deleteQueryRegex).WillReturnError(fmt.Errorf("SQL error"))
+	mock.ExpectRollback()
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("DELETE", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "Error deleting respondent record for respondent ID be70e086-7bbc-461c-a565-5b454d748a71: SQL error", errResp.Error)
+}
+
+func TestDeleteRespondentsByIDReturns500IfTransactionCommitFails(t *testing.T) {
+	setup()
+	toggleFeature("party.api.delete.respondents", true)
+	defer gock.Off()
+	var err error
+	var mock sqlmock.Sqlmock
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	rows := mock.NewRows(searchRespondentExistsQueryColumns)
+	rows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71")
+	mock.ExpectQuery(searchQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(rows)
+	mock.ExpectBegin()
+	mock.ExpectExec(deleteQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(deleteQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(deleteQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(deleteQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit().WillReturnError(fmt.Errorf("Table locked"))
+	mock.ExpectRollback()
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("DELETE", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "Can't commit transaction for respondent ID be70e086-7bbc-461c-a565-5b454d748a71: Table locked", errResp.Error)
 }
