@@ -621,7 +621,7 @@ func deleteRespondents(w http.ResponseWriter, r *http.Request, p httprouter.Para
 	}
 
 	var respondentID string
-	err = db.QueryRow("SELECT id FROM partysvc.respondents WHERE id=?", respondentUUID.String()).Scan(&respondentID)
+	err = db.QueryRow("SELECT id FROM partysvc.respondents WHERE id=$1", respondentUUID.String()).Scan(&respondentID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			w.WriteHeader(http.StatusNotFound)
@@ -639,6 +639,72 @@ func deleteRespondents(w http.ResponseWriter, r *http.Request, p httprouter.Para
 		return
 	}
 
+	tx, err := db.Begin()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		errorString := models.Error{
+			Error: "Error creating DB transaction: " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+
+	_, err = tx.Exec("DELETE FROM partysvc.enrolment WHERE respondent_id=$1", respondentID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		errorString := models.Error{
+			Error: "Error deleting enrolments for respondent ID " + respondentID + ": " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		tx.Rollback()
+		return
+	}
+
+	_, err = tx.Exec("DELETE FROM partysvc.business_respondent WHERE respondent_id=$1", respondentID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		errorString := models.Error{
+			Error: "Error deleting business respondent for respondent ID " + respondentID + ": " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		tx.Rollback()
+		return
+	}
+
+	_, err = tx.Exec("DELETE FROM partysvc.pending_enrolment WHERE respondent_id=$1", respondentID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		errorString := models.Error{
+			Error: "Error deleting pending enrolments for respondent ID " + respondentID + ": " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		tx.Rollback()
+		return
+	}
+
+	_, err = tx.Exec("DELETE FROM partysvc.respondent WHERE id=$1", respondentID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		errorString := models.Error{
+			Error: "Error deleting respondent record for respondent ID " + respondentID + ": " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		tx.Rollback()
+		return
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		errorString := models.Error{
+			Error: "Can't commit transaction for respondent ID " + respondentID + ": " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		tx.Rollback()
+		return
+	}
+
+	log.Println("Successfully deleted respondent " + respondentID)
 	w.WriteHeader(http.StatusNoContent)
 	return
 }
