@@ -734,7 +734,7 @@ func getRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.Par
 		return
 	}
 
-	_, err = db.Query("SELECT r.id, r.email_address, r.first_name, r.last_name, r.telephone, r.status, br.business_id, e.status AS enrolment_status, e.survey_id "+
+	rows, err := db.Query("SELECT r.id, r.email_address, r.first_name, r.last_name, r.telephone, r.status, br.business_id, e.status AS enrolment_status, e.survey_id "+
 		"FROM partysvc.respondent JOIN partysvc.business_respondent br ON r.id=br.respondent_id "+
 		"JOIN partysvc.enrolment e ON br.business_id=e.business_id AND br.respondent_id=e.respondent_id "+
 		"WHERE r.id=$1", respondentID.String())
@@ -747,6 +747,17 @@ func getRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.Par
 		return
 	}
 
+	respondents := rowsToRespondentsModel(rows)
+
+	if len(respondents.Data) == 0 {
+		w.WriteHeader(http.StatusNotFound)
+		errorString := models.Error{
+			Error: "No respondent found for ID " + respondentID.String(),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
-	return
+	json.NewEncoder(w).Encode(respondents)
 }
