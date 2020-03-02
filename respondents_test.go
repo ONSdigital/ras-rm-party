@@ -2557,6 +2557,25 @@ func TestGetRespondentsByID(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.Code)
 }
 
+func TestGetRespondentsByIDReturns400IfPassedANonUUID(t *testing.T) {
+	setDefaults()
+	setup()
+	toggleFeature("party.api.get.respondents.id", true)
+
+	req := httptest.NewRequest("GET", "/v2/respondents/abc123", nil)
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err := json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
+	assert.Equal(t, "Not a valid ID: abc123", errResp.Error)
+}
+
 func TestGetRespondentsByIDReturns401WhenNotAuthed(t *testing.T) {
 	setDefaults()
 	setup()

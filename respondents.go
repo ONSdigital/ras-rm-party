@@ -715,6 +715,16 @@ func getRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.Par
 		return
 	}
 
+	_, err := uuid.Parse(p.ByName("id"))
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		errorString := models.Error{
+			Error: "Not a valid ID: " + p.ByName("id"),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
 	return
 }
