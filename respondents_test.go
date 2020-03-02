@@ -25,6 +25,29 @@ var copyQueryRegex = "COPY (.+) FROM STDIN"
 var deleteQueryRegex = "DELETE FROM (.+)*"
 var searchBusinessesQueryRegex = "SELECT (.+) FROM partysvc.business WHERE party_uuid=*"
 var searchBusinessesQueryColumns = []string{"party_uuid"}
+var postReq = models.PostRespondents{
+	Data: models.Respondent{
+		Attributes: models.Attributes{
+			EmailAddress: "bob@boblaw.com",
+			FirstName:    "Bob",
+			LastName:     "Boblaw",
+			Telephone:    "01234567890",
+			ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
+		},
+		Status: "ACTIVE",
+	},
+	EnrolmentCodes: []string{"abc1234"}}
+var patchReq = models.PostRespondents{
+	Data: models.Respondent{
+		Attributes: models.Attributes{
+			EmailAddress: "bob@boblaw.com",
+			FirstName:    "Bob",
+			LastName:     "Boblaw",
+			Telephone:    "01234567890",
+		},
+		Status: "ACTIVE",
+	},
+	EnrolmentCodes: []string{"abc1234"}}
 
 // GET /respondents?...
 func TestGetRespondentsIsFeatureFlagged(t *testing.T) {
@@ -226,7 +249,7 @@ func TestPostRespondents(t *testing.T) {
 		log.Fatalf("Error setting up an SQL mock")
 	}
 
-	postReq := models.PostRespondents{
+	doublePostReq := models.PostRespondents{
 		Data: models.Respondent{
 			Attributes: models.Attributes{
 				EmailAddress: "bob@boblaw.com",
@@ -284,7 +307,7 @@ func TestPostRespondents(t *testing.T) {
 
 	gock.New("http://localhost:8121").Put("/abc1235").Reply(200)
 
-	jsonOut, err := json.Marshal(postReq)
+	jsonOut, err := json.Marshal(doublePostReq)
 	if err != nil {
 		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
 	}
@@ -325,9 +348,9 @@ func TestPostRespondents(t *testing.T) {
 	}
 
 	assert.Equal(t, http.StatusCreated, resp.Code)
-	assert.True(t, gock.IsDone())
 	assert.Equal(t, "Bob", response.Data[0].Attributes.FirstName)
 	assert.Equal(t, 2, len(response.Data[0].Associations[0].Enrolments))
+	assert.True(t, gock.IsDone())
 }
 
 func TestPostRespondentsIfIACDeactivationFails(t *testing.T) {
@@ -342,18 +365,6 @@ func TestPostRespondentsIfIACDeactivationFails(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -419,8 +430,8 @@ func TestPostRespondentsIfIACDeactivationFails(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, resp.Code)
 	assert.Contains(t, logCatcher.String(), "Error deactivating enrolment code abc1234:")
-	assert.True(t, gock.IsDone())
 	assert.Equal(t, "Bob", response.Data[0].Attributes.FirstName)
+	assert.True(t, gock.IsDone())
 }
 
 func TestPostRespondentsIfIACDeactivationDoesntReturn200(t *testing.T) {
@@ -434,18 +445,6 @@ func TestPostRespondentsIfIACDeactivationDoesntReturn200(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -512,8 +511,8 @@ func TestPostRespondentsIfIACDeactivationDoesntReturn200(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, resp.Code)
 	assert.Contains(t, logCatcher.String(), "Error deactivating enrolment code abc1234: Received status code 404 from IAC service")
-	assert.True(t, gock.IsDone())
 	assert.Equal(t, "Bob", response.Data[0].Attributes.FirstName)
+	assert.True(t, gock.IsDone())
 }
 
 func TestPostRespondentsReturns400IfBadJSON(t *testing.T) {
@@ -550,12 +549,12 @@ func TestPostRespondentsReturns400IfRequiredFieldsMissing(t *testing.T) {
 		log.Fatalf("Error setting up an SQL mock")
 	}
 
-	postReq := models.PostRespondents{
+	wrongPostReq := models.PostRespondents{
 		Data: models.Respondent{
 			Status: "ACTIVE",
 		}}
 
-	jsonOut, err := json.Marshal(postReq)
+	jsonOut, err := json.Marshal(wrongPostReq)
 	if err != nil {
 		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
 	}
@@ -577,17 +576,6 @@ func TestPostRespondentsReturns400IfRequiredFieldsMissing(t *testing.T) {
 func TestPostRespondentsReturns401WhenNotAuthed(t *testing.T) {
 	setup()
 	toggleFeature("party.api.post.respondents", true)
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	jsonOut, err := json.Marshal(postReq)
 	if err != nil {
@@ -613,18 +601,6 @@ func TestPostRespondentsReturns404IfEnrolmentCodeNotFound(t *testing.T) {
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(404)
 
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
-
 	jsonOut, err := json.Marshal(postReq)
 	if err != nil {
 		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
@@ -637,7 +613,7 @@ func TestPostRespondentsReturns404IfEnrolmentCodeNotFound(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusNotFound, resp.Code)
@@ -655,18 +631,6 @@ func TestPostRespondentsReturns404IfCaseNotFound(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -689,7 +653,7 @@ func TestPostRespondentsReturns404IfCaseNotFound(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusNotFound, resp.Code)
@@ -707,18 +671,6 @@ func TestPostRespondentsReturns404IfCollectionExerciseNotFound(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -750,7 +702,7 @@ func TestPostRespondentsReturns404IfCollectionExerciseNotFound(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusNotFound, resp.Code)
@@ -768,18 +720,6 @@ func TestPostRespondentsReturns422IfEnrolmentCodeInactive(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -800,7 +740,7 @@ func TestPostRespondentsReturns422IfEnrolmentCodeInactive(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
@@ -819,18 +759,6 @@ func TestPostRespondentsReturns422IfBusinessNotFoundToAssociate(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -867,7 +795,7 @@ func TestPostRespondentsReturns422IfBusinessNotFoundToAssociate(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
@@ -886,19 +814,6 @@ func TestPostRespondentsReturns422IfRespondentCouldntBeInserted(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -944,7 +859,7 @@ func TestPostRespondentsReturns422IfRespondentCouldntBeInserted(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
@@ -963,19 +878,6 @@ func TestPostRespondentsReturns422IfBusinessRespondentCouldntBeInserted(t *testi
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -1022,7 +924,7 @@ func TestPostRespondentsReturns422IfBusinessRespondentCouldntBeInserted(t *testi
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
@@ -1041,19 +943,6 @@ func TestPostRespondentsReturns422IfBusinessRespondentCouldntBeCommitted(t *test
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -1101,7 +990,7 @@ func TestPostRespondentsReturns422IfBusinessRespondentCouldntBeCommitted(t *test
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
@@ -1120,19 +1009,6 @@ func TestPostRespondentsReturns422IfPendingEnrolmentCouldntBeInserted(t *testing
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -1184,7 +1060,7 @@ func TestPostRespondentsReturns422IfPendingEnrolmentCouldntBeInserted(t *testing
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
@@ -1204,19 +1080,6 @@ func TestPostRespondentsReturns422IfPendingEnrolmentCouldntBeCommitted(t *testin
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -1271,7 +1134,7 @@ func TestPostRespondentsReturns422IfPendingEnrolmentCouldntBeCommitted(t *testin
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
@@ -1290,19 +1153,6 @@ func TestPostRespondentsReturns422IfEnrolmentCouldntBeInserted(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -1356,7 +1206,7 @@ func TestPostRespondentsReturns422IfEnrolmentCouldntBeInserted(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
@@ -1376,19 +1226,6 @@ func TestPostRespondentsReturns422IfEnrolmentCouldntBeCommitted(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -1444,7 +1281,7 @@ func TestPostRespondentsReturns422IfEnrolmentCouldntBeCommitted(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
@@ -1463,19 +1300,6 @@ func TestPostRespondentsReturns422IfCommitFails(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -1532,7 +1356,7 @@ func TestPostRespondentsReturns422IfCommitFails(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
@@ -1546,18 +1370,6 @@ func TestPostRespondentsReturns500WhenDBNotInit(t *testing.T) {
 	toggleFeature("party.api.post.respondents", true)
 	db = nil
 
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
-
 	jsonOut, err := json.Marshal(postReq)
 	if err != nil {
 		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
@@ -1570,7 +1382,7 @@ func TestPostRespondentsReturns500WhenDBNotInit(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -1588,18 +1400,6 @@ func TestPostRespondentsReturns500WhenDBDown(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -1636,7 +1436,7 @@ func TestPostRespondentsReturns500WhenDBDown(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -1658,18 +1458,6 @@ func TestPostRespondentsReturns500IfIACCommunicationsFail(t *testing.T) {
 
 	gock.New("http://iac-service").Get("/").Reply(200)
 
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
-
 	jsonOut, err := json.Marshal(postReq)
 	if err != nil {
 		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
@@ -1682,7 +1470,7 @@ func TestPostRespondentsReturns500IfIACCommunicationsFail(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -1699,18 +1487,6 @@ func TestPostRespondentsReturns500IfCaseCommunicationsFail(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -1733,7 +1509,7 @@ func TestPostRespondentsReturns500IfCaseCommunicationsFail(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -1750,18 +1526,6 @@ func TestPostRespondentsReturns500IfCollectionExerciseCommunicationsFail(t *test
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -1793,7 +1557,7 @@ func TestPostRespondentsReturns500IfCollectionExerciseCommunicationsFail(t *test
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -1810,19 +1574,6 @@ func TestPostRespondentsReturns500IfDBTransactionCouldntBegin(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -1865,7 +1616,7 @@ func TestPostRespondentsReturns500IfDBTransactionCouldntBegin(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -1884,19 +1635,6 @@ func TestPostRespondentsReturns500IfInsertRespondentPreparedStatementFails(t *te
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -1940,7 +1678,7 @@ func TestPostRespondentsReturns500IfInsertRespondentPreparedStatementFails(t *te
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -1959,19 +1697,6 @@ func TestPostRespondentsReturns500IfInsertBusinessRespondentPreparedStatementFai
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -2017,7 +1742,7 @@ func TestPostRespondentsReturns500IfInsertBusinessRespondentPreparedStatementFai
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -2036,19 +1761,6 @@ func TestPostRespondentsReturns500IfInsertPendingEnrolmentPreparedStatementFails
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -2096,7 +1808,7 @@ func TestPostRespondentsReturns500IfInsertPendingEnrolmentPreparedStatementFails
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -2115,19 +1827,6 @@ func TestPostRespondentsReturns500IfInsertEnrolmentPreparedStatementFails(t *tes
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -2176,7 +1875,7 @@ func TestPostRespondentsReturns500IfInsertEnrolmentPreparedStatementFails(t *tes
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -2189,7 +1888,7 @@ func TestDeleteRespondentsByIDIsFeatureFlagged(t *testing.T) {
 	// Assure that it's properly feature flagged away
 	setDefaults()
 	setup()
-	toggleFeature("party.api.delete.respondents", false)
+	toggleFeature("party.api.delete.respondents.id", false)
 
 	req := httptest.NewRequest("DELETE", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
 	req.SetBasicAuth("admin", "secret")
@@ -2200,7 +1899,7 @@ func TestDeleteRespondentsByIDIsFeatureFlagged(t *testing.T) {
 
 func TestDeleteRespondentsByID(t *testing.T) {
 	setup()
-	toggleFeature("party.api.delete.respondents", true)
+	toggleFeature("party.api.delete.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 	db, mock, err = sqlmock.New()
@@ -2228,7 +1927,7 @@ func TestDeleteRespondentsByID(t *testing.T) {
 
 func TestDeleteRespondentsByIDReturns400IfPassedANonUUID(t *testing.T) {
 	setup()
-	toggleFeature("party.api.delete.respondents", true)
+	toggleFeature("party.api.delete.respondents.id", true)
 
 	req := httptest.NewRequest("DELETE", "/v2/respondents/abc123", nil)
 	req.SetBasicAuth("admin", "secret")
@@ -2237,7 +1936,7 @@ func TestDeleteRespondentsByIDReturns400IfPassedANonUUID(t *testing.T) {
 	var errResp models.Error
 	err := json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'DELETE /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusBadRequest, resp.Code)
@@ -2246,7 +1945,7 @@ func TestDeleteRespondentsByIDReturns400IfPassedANonUUID(t *testing.T) {
 
 func TestDeleteRespondentsByIDReturns401WhenNotAuthed(t *testing.T) {
 	setup()
-	toggleFeature("party.api.delete.respondents", true)
+	toggleFeature("party.api.delete.respondents.id", true)
 
 	req := httptest.NewRequest("DELETE", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
 	router.ServeHTTP(resp, req)
@@ -2256,7 +1955,7 @@ func TestDeleteRespondentsByIDReturns401WhenNotAuthed(t *testing.T) {
 
 func TestDeleteRespondentsByIDReturns404WhenRespondentNotFound(t *testing.T) {
 	setup()
-	toggleFeature("party.api.delete.respondents", true)
+	toggleFeature("party.api.delete.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 	db, mock, err = sqlmock.New()
@@ -2273,7 +1972,7 @@ func TestDeleteRespondentsByIDReturns404WhenRespondentNotFound(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'DELETE /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusNotFound, resp.Code)
@@ -2283,7 +1982,7 @@ func TestDeleteRespondentsByIDReturns404WhenRespondentNotFound(t *testing.T) {
 func TestDeleteRespondentsByIDReturns500WhenDBNotInit(t *testing.T) {
 	// It shouldn't be possible to start the app without a DB, but just in case
 	setup()
-	toggleFeature("party.api.delete.respondents", true)
+	toggleFeature("party.api.delete.respondents.id", true)
 	db = nil
 
 	req := httptest.NewRequest("DELETE", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
@@ -2293,7 +1992,7 @@ func TestDeleteRespondentsByIDReturns500WhenDBNotInit(t *testing.T) {
 	var errResp models.Error
 	err := json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'DELETE /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -2302,7 +2001,7 @@ func TestDeleteRespondentsByIDReturns500WhenDBNotInit(t *testing.T) {
 
 func TestDeleteRespondentsByIDReturns500WhenDBDown(t *testing.T) {
 	setup()
-	toggleFeature("party.api.delete.respondents", true)
+	toggleFeature("party.api.delete.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 	db, mock, err = sqlmock.New()
@@ -2319,7 +2018,7 @@ func TestDeleteRespondentsByIDReturns500WhenDBDown(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'DELETE /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -2328,7 +2027,7 @@ func TestDeleteRespondentsByIDReturns500WhenDBDown(t *testing.T) {
 
 func TestDeleteRespondentsByIDReturns500IfDBTransactionCouldntBegin(t *testing.T) {
 	setup()
-	toggleFeature("party.api.delete.respondents", true)
+	toggleFeature("party.api.delete.respondents.id", true)
 	defer gock.Off()
 	var err error
 	var mock sqlmock.Sqlmock
@@ -2349,7 +2048,7 @@ func TestDeleteRespondentsByIDReturns500IfDBTransactionCouldntBegin(t *testing.T
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'DELETE /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -2358,7 +2057,7 @@ func TestDeleteRespondentsByIDReturns500IfDBTransactionCouldntBegin(t *testing.T
 
 func TestDeleteRespondentsByIDReturns500IfDeletingEnrolmentsFails(t *testing.T) {
 	setup()
-	toggleFeature("party.api.delete.respondents", true)
+	toggleFeature("party.api.delete.respondents.id", true)
 	defer gock.Off()
 	var err error
 	var mock sqlmock.Sqlmock
@@ -2382,7 +2081,7 @@ func TestDeleteRespondentsByIDReturns500IfDeletingEnrolmentsFails(t *testing.T) 
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'DELETE /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -2391,7 +2090,7 @@ func TestDeleteRespondentsByIDReturns500IfDeletingEnrolmentsFails(t *testing.T) 
 
 func TestDeleteRespondentsByIDReturns500IfDeletingBusinessRespondentFails(t *testing.T) {
 	setup()
-	toggleFeature("party.api.delete.respondents", true)
+	toggleFeature("party.api.delete.respondents.id", true)
 	defer gock.Off()
 	var err error
 	var mock sqlmock.Sqlmock
@@ -2416,7 +2115,7 @@ func TestDeleteRespondentsByIDReturns500IfDeletingBusinessRespondentFails(t *tes
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'DELETE /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -2425,7 +2124,7 @@ func TestDeleteRespondentsByIDReturns500IfDeletingBusinessRespondentFails(t *tes
 
 func TestDeleteRespondentsByIDReturns500IfDeletingPendingEnrolmentsFails(t *testing.T) {
 	setup()
-	toggleFeature("party.api.delete.respondents", true)
+	toggleFeature("party.api.delete.respondents.id", true)
 	defer gock.Off()
 	var err error
 	var mock sqlmock.Sqlmock
@@ -2451,7 +2150,7 @@ func TestDeleteRespondentsByIDReturns500IfDeletingPendingEnrolmentsFails(t *test
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'DELETE /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -2460,7 +2159,7 @@ func TestDeleteRespondentsByIDReturns500IfDeletingPendingEnrolmentsFails(t *test
 
 func TestDeleteRespondentsByIDReturns500IfDeletingRespondentFails(t *testing.T) {
 	setup()
-	toggleFeature("party.api.delete.respondents", true)
+	toggleFeature("party.api.delete.respondents.id", true)
 	defer gock.Off()
 	var err error
 	var mock sqlmock.Sqlmock
@@ -2487,7 +2186,7 @@ func TestDeleteRespondentsByIDReturns500IfDeletingRespondentFails(t *testing.T) 
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'DELETE /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -2496,7 +2195,7 @@ func TestDeleteRespondentsByIDReturns500IfDeletingRespondentFails(t *testing.T) 
 
 func TestDeleteRespondentsByIDReturns500IfTransactionCommitFails(t *testing.T) {
 	setup()
-	toggleFeature("party.api.delete.respondents", true)
+	toggleFeature("party.api.delete.respondents.id", true)
 	defer gock.Off()
 	var err error
 	var mock sqlmock.Sqlmock
@@ -2524,7 +2223,7 @@ func TestDeleteRespondentsByIDReturns500IfTransactionCommitFails(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'DELETE /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -2571,7 +2270,7 @@ func TestGetRespondentsByID(t *testing.T) {
 	var respondent models.Respondents
 	err = json.NewDecoder(resp.Body).Decode(&respondent)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'GET /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusOK, resp.Code)
@@ -2595,7 +2294,7 @@ func TestGetRespondentsByIDReturns400IfPassedANonUUID(t *testing.T) {
 	var errResp models.Error
 	err := json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'GET /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusBadRequest, resp.Code)
@@ -2633,7 +2332,7 @@ func TestGetRespondentsByIDReturns404WhenNoResults(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'GET /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusNotFound, resp.Code)
@@ -2654,7 +2353,7 @@ func TestGetRespondentsByIDReturns500WhenDBNotInit(t *testing.T) {
 	var errResp models.Error
 	err := json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'GET /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -2682,9 +2381,171 @@ func TestGetRespondentsByIDReturns500WhenDBDown(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'GET /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 	assert.Equal(t, "Error querying DB: Connection refused", errResp.Error)
+}
+
+// PATCH /respondents/id
+func TestPatchRespondentsByIDIsFeatureFlagged(t *testing.T) {
+	// Assure that it's properly feature flagged away
+	setDefaults()
+	setup()
+	toggleFeature("party.api.patch.respondents.id", false)
+
+	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusMethodNotAllowed, resp.Code)
+}
+
+func TestPatchRespondentsByID(t *testing.T) {
+	setDefaults()
+	setup()
+	toggleFeature("party.api.patch.respondents.id", true)
+	var err error
+	var mock sqlmock.Sqlmock
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	patchReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234", "abc1235"}}
+
+	jsonOut, err := json.Marshal(patchReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+}
+
+func TestPatchRespondentsByIDReturns400IfPassedANonUUID(t *testing.T) {
+	setDefaults()
+	setup()
+	toggleFeature("party.api.patch.respondents.id", true)
+
+	req := httptest.NewRequest("PATCH", "/v2/respondents/abc123", nil)
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err := json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'PATCH /respondents/{id}', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
+	assert.Equal(t, "Not a valid ID: abc123", errResp.Error)
+}
+
+func TestPatchRespondentsByIDReturns400IfBadJSON(t *testing.T) {
+	setDefaults()
+	setup()
+	toggleFeature("party.api.patch.respondents.id", true)
+
+	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", strings.NewReader("{nonsense: true}"))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err := json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'PATCH /respondents/{id}', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
+	assert.Equal(t, "Invalid JSON", errResp.Error)
+}
+
+func TestPatchRespondentsByIDReturns401WhenNotAuthed(t *testing.T) {
+	setDefaults()
+	setup()
+	toggleFeature("party.api.patch.respondents.id", true)
+
+	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusUnauthorized, resp.Code)
+}
+
+func TestPatchRespondentsByIDReturns500WhenDBNotInit(t *testing.T) {
+	setDefaults()
+	setup()
+	toggleFeature("party.api.patch.respondents.id", true)
+
+	db = nil
+
+	jsonOut, err := json.Marshal(patchReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
+	}
+
+	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'PATCH /respondents/{id}', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "Database connection could not be found", errResp.Error)
+}
+
+func TestPatchRespondentsByIDReturns500IfDBTransactionCouldntBegin(t *testing.T) {
+	setDefaults()
+	setup()
+	toggleFeature("party.api.patch.respondents.id", true)
+	var err error
+	var mock sqlmock.Sqlmock
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	jsonOut, err := json.Marshal(patchReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
+	}
+
+	mock.ExpectBegin().WillReturnError(fmt.Errorf("Transaction failed"))
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'PATCH /respondents/{id}', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "Error creating DB transaction: Transaction failed", errResp.Error)
 }

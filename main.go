@@ -37,6 +37,7 @@ func addRoutes(r *httprouter.Router) {
 	r.POST("/v2/respondents", auth(postRespondents, viper.GetString("security_user_name"), viper.GetString("security_user_password")))
 	r.DELETE("/v2/respondents/:id", auth(deleteRespondents, viper.GetString("security_user_name"), viper.GetString("security_user_password")))
 	r.GET("/v2/respondents/:id", auth(getRespondentsByID, viper.GetString("security_user_name"), viper.GetString("security_user_password")))
+	r.PATCH("/v2/respondents/:id", auth(patchRespondentsByID, viper.GetString("security_user_name"), viper.GetString("security_user_password")))
 }
 
 func startServer(r http.Handler, wg *sync.WaitGroup) *http.Server {

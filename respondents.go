@@ -596,7 +596,7 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 }
 
 func deleteRespondents(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	if !unleash.IsEnabled("party.api.delete.respondents", unleash.WithFallback(false)) {
+	if !unleash.IsEnabled("party.api.delete.respondents.id", unleash.WithFallback(false)) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
@@ -760,4 +760,53 @@ func getRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.Par
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(respondents)
+}
+
+func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	if !unleash.IsEnabled("party.api.patch.respondents.id", unleash.WithFallback(false)) {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	_, err := uuid.Parse(p.ByName("id"))
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		errorString := models.Error{
+			Error: "Not a valid ID: " + p.ByName("id"),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+
+	var postRequest models.PostRespondents
+	err = json.NewDecoder(r.Body).Decode(&postRequest)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		errorString := models.Error{
+			Error: "Invalid JSON",
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+
+	if db == nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		errorString := models.Error{
+			Error: "Database connection could not be found",
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+
+	_, err = db.Begin()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		errorString := models.Error{
+			Error: "Error creating DB transaction: " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
