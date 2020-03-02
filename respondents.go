@@ -708,3 +708,56 @@ func deleteRespondents(w http.ResponseWriter, r *http.Request, p httprouter.Para
 	w.WriteHeader(http.StatusNoContent)
 	return
 }
+
+func getRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	if !unleash.IsEnabled("party.api.get.respondents.id", unleash.WithFallback(false)) {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	respondentID, err := uuid.Parse(p.ByName("id"))
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		errorString := models.Error{
+			Error: "Not a valid ID: " + p.ByName("id"),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+
+	if db == nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		errorString := models.Error{
+			Error: "Database connection could not be found",
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+
+	rows, err := db.Query("SELECT r.id, r.email_address, r.first_name, r.last_name, r.telephone, r.status, br.business_id, e.status AS enrolment_status, e.survey_id "+
+		"FROM partysvc.respondent JOIN partysvc.business_respondent br ON r.id=br.respondent_id "+
+		"JOIN partysvc.enrolment e ON br.business_id=e.business_id AND br.respondent_id=e.respondent_id "+
+		"WHERE r.id=$1", respondentID.String())
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		errorString := models.Error{
+			Error: "Error querying DB: " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+
+	respondents := rowsToRespondentsModel(rows)
+
+	if len(respondents.Data) == 0 {
+		w.WriteHeader(http.StatusNotFound)
+		errorString := models.Error{
+			Error: "No respondent found for ID " + respondentID.String(),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(respondents)
+}
