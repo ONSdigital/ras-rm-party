@@ -637,7 +637,7 @@ func TestPostRespondentsReturns404IfEnrolmentCodeNotFound(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusNotFound, resp.Code)
@@ -689,7 +689,7 @@ func TestPostRespondentsReturns404IfCaseNotFound(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusNotFound, resp.Code)
@@ -750,7 +750,7 @@ func TestPostRespondentsReturns404IfCollectionExerciseNotFound(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusNotFound, resp.Code)
@@ -800,7 +800,7 @@ func TestPostRespondentsReturns422IfEnrolmentCodeInactive(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
@@ -867,7 +867,7 @@ func TestPostRespondentsReturns422IfBusinessNotFoundToAssociate(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
@@ -944,7 +944,7 @@ func TestPostRespondentsReturns422IfRespondentCouldntBeInserted(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
@@ -1022,7 +1022,7 @@ func TestPostRespondentsReturns422IfBusinessRespondentCouldntBeInserted(t *testi
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
@@ -1101,7 +1101,7 @@ func TestPostRespondentsReturns422IfBusinessRespondentCouldntBeCommitted(t *test
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
@@ -1184,7 +1184,7 @@ func TestPostRespondentsReturns422IfPendingEnrolmentCouldntBeInserted(t *testing
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
@@ -1271,7 +1271,7 @@ func TestPostRespondentsReturns422IfPendingEnrolmentCouldntBeCommitted(t *testin
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
@@ -1356,7 +1356,7 @@ func TestPostRespondentsReturns422IfEnrolmentCouldntBeInserted(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
@@ -1444,7 +1444,7 @@ func TestPostRespondentsReturns422IfEnrolmentCouldntBeCommitted(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
@@ -1532,7 +1532,7 @@ func TestPostRespondentsReturns422IfCommitFails(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
@@ -1570,7 +1570,7 @@ func TestPostRespondentsReturns500WhenDBNotInit(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -1636,7 +1636,7 @@ func TestPostRespondentsReturns500WhenDBDown(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -1682,7 +1682,7 @@ func TestPostRespondentsReturns500IfIACCommunicationsFail(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -1733,7 +1733,7 @@ func TestPostRespondentsReturns500IfCaseCommunicationsFail(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -1793,7 +1793,7 @@ func TestPostRespondentsReturns500IfCollectionExerciseCommunicationsFail(t *test
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -1865,7 +1865,7 @@ func TestPostRespondentsReturns500IfDBTransactionCouldntBegin(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -1940,7 +1940,7 @@ func TestPostRespondentsReturns500IfInsertRespondentPreparedStatementFails(t *te
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -2017,7 +2017,7 @@ func TestPostRespondentsReturns500IfInsertBusinessRespondentPreparedStatementFai
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -2096,7 +2096,7 @@ func TestPostRespondentsReturns500IfInsertPendingEnrolmentPreparedStatementFails
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -2176,7 +2176,7 @@ func TestPostRespondentsReturns500IfInsertEnrolmentPreparedStatementFails(t *tes
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -2237,7 +2237,7 @@ func TestDeleteRespondentsByIDReturns400IfPassedANonUUID(t *testing.T) {
 	var errResp models.Error
 	err := json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'DELETE /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusBadRequest, resp.Code)
@@ -2273,7 +2273,7 @@ func TestDeleteRespondentsByIDReturns404WhenRespondentNotFound(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'DELETE /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusNotFound, resp.Code)
@@ -2293,7 +2293,7 @@ func TestDeleteRespondentsByIDReturns500WhenDBNotInit(t *testing.T) {
 	var errResp models.Error
 	err := json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'DELETE /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -2319,7 +2319,7 @@ func TestDeleteRespondentsByIDReturns500WhenDBDown(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'DELETE /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -2349,7 +2349,7 @@ func TestDeleteRespondentsByIDReturns500IfDBTransactionCouldntBegin(t *testing.T
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'DELETE /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -2382,7 +2382,7 @@ func TestDeleteRespondentsByIDReturns500IfDeletingEnrolmentsFails(t *testing.T) 
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'DELETE /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -2416,7 +2416,7 @@ func TestDeleteRespondentsByIDReturns500IfDeletingBusinessRespondentFails(t *tes
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'DELETE /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -2451,7 +2451,7 @@ func TestDeleteRespondentsByIDReturns500IfDeletingPendingEnrolmentsFails(t *test
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'DELETE /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -2487,7 +2487,7 @@ func TestDeleteRespondentsByIDReturns500IfDeletingRespondentFails(t *testing.T) 
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'DELETE /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -2524,7 +2524,7 @@ func TestDeleteRespondentsByIDReturns500IfTransactionCommitFails(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'DELETE /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -2571,7 +2571,7 @@ func TestGetRespondentsByID(t *testing.T) {
 	var respondent models.Respondents
 	err = json.NewDecoder(resp.Body).Decode(&respondent)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'GET /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusOK, resp.Code)
@@ -2595,7 +2595,7 @@ func TestGetRespondentsByIDReturns400IfPassedANonUUID(t *testing.T) {
 	var errResp models.Error
 	err := json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'GET /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusBadRequest, resp.Code)
@@ -2633,7 +2633,7 @@ func TestGetRespondentsByIDReturns404WhenNoResults(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'GET /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusNotFound, resp.Code)
@@ -2654,7 +2654,7 @@ func TestGetRespondentsByIDReturns500WhenDBNotInit(t *testing.T) {
 	var errResp models.Error
 	err := json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'GET /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -2682,7 +2682,7 @@ func TestGetRespondentsByIDReturns500WhenDBDown(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'GET /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -2708,8 +2708,9 @@ func TestPatchRespondentsByID(t *testing.T) {
 	setup()
 	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
+	var mock sqlmock.Sqlmock
 
-	db, _, err = sqlmock.New()
+	db, mock, err = sqlmock.New()
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
@@ -2728,8 +2729,11 @@ func TestPatchRespondentsByID(t *testing.T) {
 
 	jsonOut, err := json.Marshal(postReq)
 	if err != nil {
-		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
 	}
+
+	mock.ExpectBegin()
+	mock.ExpectClose()
 
 	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", bytes.NewBuffer(jsonOut))
 	req.SetBasicAuth("admin", "secret")
@@ -2750,7 +2754,7 @@ func TestPatchRespondentsByIDReturns400IfPassedANonUUID(t *testing.T) {
 	var errResp models.Error
 	err := json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'PATCH /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusBadRequest, resp.Code)
@@ -2769,7 +2773,7 @@ func TestPatchRespondentsByIDReturns400IfBadJSON(t *testing.T) {
 	var errResp models.Error
 	err := json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'PATCH /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusBadRequest, resp.Code)
@@ -2808,7 +2812,7 @@ func TestPatchRespondentsByIDReturns500WhenDBNotInit(t *testing.T) {
 
 	jsonOut, err := json.Marshal(postReq)
 	if err != nil {
-		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
 	}
 
 	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", bytes.NewBuffer(jsonOut))
@@ -2818,9 +2822,55 @@ func TestPatchRespondentsByIDReturns500WhenDBNotInit(t *testing.T) {
 	var errResp models.Error
 	err = json.NewDecoder(resp.Body).Decode(&errResp)
 	if err != nil {
-		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+		t.Fatal("Error decoding JSON response from 'PATCH /respondents/{id}', ", err.Error())
 	}
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 	assert.Equal(t, "Database connection could not be found", errResp.Error)
+}
+
+func TestPatchRespondentsByIDReturns500IfDBTransactionCouldntBegin(t *testing.T) {
+	setDefaults()
+	setup()
+	toggleFeature("party.api.patch.respondents.id", true)
+	var err error
+	var mock sqlmock.Sqlmock
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234", "abc1235"}}
+
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
+	}
+
+	mock.ExpectBegin().WillReturnError(fmt.Errorf("Transaction failed"))
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'PATCH /respondents/{id}', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "Error creating DB transaction: Transaction failed", errResp.Error)
 }

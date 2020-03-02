@@ -798,5 +798,15 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 		return
 	}
 
+	_, err = db.Begin()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		errorString := models.Error{
+			Error: "Error creating DB transaction: " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
 }
