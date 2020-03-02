@@ -25,6 +25,29 @@ var copyQueryRegex = "COPY (.+) FROM STDIN"
 var deleteQueryRegex = "DELETE FROM (.+)*"
 var searchBusinessesQueryRegex = "SELECT (.+) FROM partysvc.business WHERE party_uuid=*"
 var searchBusinessesQueryColumns = []string{"party_uuid"}
+var postReq = models.PostRespondents{
+	Data: models.Respondent{
+		Attributes: models.Attributes{
+			EmailAddress: "bob@boblaw.com",
+			FirstName:    "Bob",
+			LastName:     "Boblaw",
+			Telephone:    "01234567890",
+			ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
+		},
+		Status: "ACTIVE",
+	},
+	EnrolmentCodes: []string{"abc1234"}}
+var patchReq = models.PostRespondents{
+	Data: models.Respondent{
+		Attributes: models.Attributes{
+			EmailAddress: "bob@boblaw.com",
+			FirstName:    "Bob",
+			LastName:     "Boblaw",
+			Telephone:    "01234567890",
+		},
+		Status: "ACTIVE",
+	},
+	EnrolmentCodes: []string{"abc1234"}}
 
 // GET /respondents?...
 func TestGetRespondentsIsFeatureFlagged(t *testing.T) {
@@ -226,7 +249,7 @@ func TestPostRespondents(t *testing.T) {
 		log.Fatalf("Error setting up an SQL mock")
 	}
 
-	postReq := models.PostRespondents{
+	doublePostReq := models.PostRespondents{
 		Data: models.Respondent{
 			Attributes: models.Attributes{
 				EmailAddress: "bob@boblaw.com",
@@ -284,7 +307,7 @@ func TestPostRespondents(t *testing.T) {
 
 	gock.New("http://localhost:8121").Put("/abc1235").Reply(200)
 
-	jsonOut, err := json.Marshal(postReq)
+	jsonOut, err := json.Marshal(doublePostReq)
 	if err != nil {
 		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
 	}
@@ -342,18 +365,6 @@ func TestPostRespondentsIfIACDeactivationFails(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -434,18 +445,6 @@ func TestPostRespondentsIfIACDeactivationDoesntReturn200(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -550,12 +549,12 @@ func TestPostRespondentsReturns400IfRequiredFieldsMissing(t *testing.T) {
 		log.Fatalf("Error setting up an SQL mock")
 	}
 
-	postReq := models.PostRespondents{
+	wrongPostReq := models.PostRespondents{
 		Data: models.Respondent{
 			Status: "ACTIVE",
 		}}
 
-	jsonOut, err := json.Marshal(postReq)
+	jsonOut, err := json.Marshal(wrongPostReq)
 	if err != nil {
 		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
 	}
@@ -577,17 +576,6 @@ func TestPostRespondentsReturns400IfRequiredFieldsMissing(t *testing.T) {
 func TestPostRespondentsReturns401WhenNotAuthed(t *testing.T) {
 	setup()
 	toggleFeature("party.api.post.respondents", true)
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	jsonOut, err := json.Marshal(postReq)
 	if err != nil {
@@ -612,18 +600,6 @@ func TestPostRespondentsReturns404IfEnrolmentCodeNotFound(t *testing.T) {
 	}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(404)
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	jsonOut, err := json.Marshal(postReq)
 	if err != nil {
@@ -655,18 +631,6 @@ func TestPostRespondentsReturns404IfCaseNotFound(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -707,18 +671,6 @@ func TestPostRespondentsReturns404IfCollectionExerciseNotFound(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -769,18 +721,6 @@ func TestPostRespondentsReturns422IfEnrolmentCodeInactive(t *testing.T) {
 		log.Fatalf("Error setting up an SQL mock")
 	}
 
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
-
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
 		Active:      false,
@@ -819,18 +759,6 @@ func TestPostRespondentsReturns422IfBusinessNotFoundToAssociate(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -886,19 +814,6 @@ func TestPostRespondentsReturns422IfRespondentCouldntBeInserted(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -963,19 +878,6 @@ func TestPostRespondentsReturns422IfBusinessRespondentCouldntBeInserted(t *testi
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -1042,19 +944,6 @@ func TestPostRespondentsReturns422IfBusinessRespondentCouldntBeCommitted(t *test
 		log.Fatalf("Error setting up an SQL mock")
 	}
 
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
-
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
 		Active:      true,
@@ -1120,19 +1009,6 @@ func TestPostRespondentsReturns422IfPendingEnrolmentCouldntBeInserted(t *testing
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -1204,19 +1080,6 @@ func TestPostRespondentsReturns422IfPendingEnrolmentCouldntBeCommitted(t *testin
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -1291,19 +1154,6 @@ func TestPostRespondentsReturns422IfEnrolmentCouldntBeInserted(t *testing.T) {
 		log.Fatalf("Error setting up an SQL mock")
 	}
 
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
-
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
 		Active:      true,
@@ -1376,19 +1226,6 @@ func TestPostRespondentsReturns422IfEnrolmentCouldntBeCommitted(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -1464,19 +1301,6 @@ func TestPostRespondentsReturns422IfCommitFails(t *testing.T) {
 		log.Fatalf("Error setting up an SQL mock")
 	}
 
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
-
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
 		Active:      true,
@@ -1546,18 +1370,6 @@ func TestPostRespondentsReturns500WhenDBNotInit(t *testing.T) {
 	toggleFeature("party.api.post.respondents", true)
 	db = nil
 
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
-
 	jsonOut, err := json.Marshal(postReq)
 	if err != nil {
 		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
@@ -1588,18 +1400,6 @@ func TestPostRespondentsReturns500WhenDBDown(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -1658,18 +1458,6 @@ func TestPostRespondentsReturns500IfIACCommunicationsFail(t *testing.T) {
 
 	gock.New("http://iac-service").Get("/").Reply(200)
 
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
-
 	jsonOut, err := json.Marshal(postReq)
 	if err != nil {
 		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
@@ -1699,18 +1487,6 @@ func TestPostRespondentsReturns500IfCaseCommunicationsFail(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -1750,18 +1526,6 @@ func TestPostRespondentsReturns500IfCollectionExerciseCommunicationsFail(t *test
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -1810,19 +1574,6 @@ func TestPostRespondentsReturns500IfDBTransactionCouldntBegin(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -1885,19 +1636,6 @@ func TestPostRespondentsReturns500IfInsertRespondentPreparedStatementFails(t *te
 		log.Fatalf("Error setting up an SQL mock")
 	}
 
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
-
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
 		Active:      true,
@@ -1959,19 +1697,6 @@ func TestPostRespondentsReturns500IfInsertBusinessRespondentPreparedStatementFai
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -2036,19 +1761,6 @@ func TestPostRespondentsReturns500IfInsertPendingEnrolmentPreparedStatementFails
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -2115,19 +1827,6 @@ func TestPostRespondentsReturns500IfInsertEnrolmentPreparedStatementFails(t *tes
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-				ID:           "be70e086-7bbc-461c-a565-5b454d748a71",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234"}}
 
 	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
 		IAC:         "abc1234",
@@ -2715,7 +2414,7 @@ func TestPatchRespondentsByID(t *testing.T) {
 		log.Fatalf("Error setting up an SQL mock")
 	}
 
-	postReq := models.PostRespondents{
+	patchReq := models.PostRespondents{
 		Data: models.Respondent{
 			Attributes: models.Attributes{
 				EmailAddress: "bob@boblaw.com",
@@ -2727,7 +2426,7 @@ func TestPatchRespondentsByID(t *testing.T) {
 		},
 		EnrolmentCodes: []string{"abc1234", "abc1235"}}
 
-	jsonOut, err := json.Marshal(postReq)
+	jsonOut, err := json.Marshal(patchReq)
 	if err != nil {
 		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
 	}
@@ -2798,19 +2497,7 @@ func TestPatchRespondentsByIDReturns500WhenDBNotInit(t *testing.T) {
 
 	db = nil
 
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234", "abc1235"}}
-
-	jsonOut, err := json.Marshal(postReq)
+	jsonOut, err := json.Marshal(patchReq)
 	if err != nil {
 		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
 	}
@@ -2841,19 +2528,7 @@ func TestPatchRespondentsByIDReturns500IfDBTransactionCouldntBegin(t *testing.T)
 		log.Fatalf("Error setting up an SQL mock")
 	}
 
-	postReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "bob@boblaw.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234", "abc1235"}}
-
-	jsonOut, err := json.Marshal(postReq)
+	jsonOut, err := json.Marshal(patchReq)
 	if err != nil {
 		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
 	}
