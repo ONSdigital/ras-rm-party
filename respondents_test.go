@@ -2707,6 +2707,12 @@ func TestPatchRespondentsByID(t *testing.T) {
 	setDefaults()
 	setup()
 	toggleFeature("party.api.patch.respondents.id", true)
+	var err error
+
+	db, _, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
 
 	postReq := models.PostRespondents{
 		Data: models.Respondent{
@@ -2779,4 +2785,42 @@ func TestPatchRespondentsByIDReturns401WhenNotAuthed(t *testing.T) {
 	router.ServeHTTP(resp, req)
 
 	assert.Equal(t, http.StatusUnauthorized, resp.Code)
+}
+
+func TestPatchRespondentsByIDReturns500WhenDBNotInit(t *testing.T) {
+	setDefaults()
+	setup()
+	toggleFeature("party.api.patch.respondents.id", true)
+
+	db = nil
+
+	postReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "bob@boblaw.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234", "abc1235"}}
+
+	jsonOut, err := json.Marshal(postReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'POST /respondents', ", err.Error())
+	}
+
+	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "Database connection could not be found", errResp.Error)
 }
