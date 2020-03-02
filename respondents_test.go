@@ -2550,6 +2550,12 @@ func TestGetRespondentsByID(t *testing.T) {
 	setup()
 	toggleFeature("party.api.get.respondents.id", true)
 
+	var err error
+	db, _, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
 	req := httptest.NewRequest("GET", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
 	req.SetBasicAuth("admin", "secret")
 	router.ServeHTTP(resp, req)
@@ -2585,4 +2591,25 @@ func TestGetRespondentsByIDReturns401WhenNotAuthed(t *testing.T) {
 	router.ServeHTTP(resp, req)
 
 	assert.Equal(t, http.StatusUnauthorized, resp.Code)
+}
+
+func TestGetRespondentsByIDReturns500WhenDBNotInit(t *testing.T) {
+	setDefaults()
+	setup()
+	toggleFeature("party.api.get.respondents.id", true)
+
+	db = nil
+
+	req := httptest.NewRequest("GET", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err := json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'GET /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "Database connection could not be found", errResp.Error)
 }
