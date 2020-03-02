@@ -708,3 +708,13 @@ func deleteRespondents(w http.ResponseWriter, r *http.Request, p httprouter.Para
 	w.WriteHeader(http.StatusNoContent)
 	return
 }
+
+func getRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	if !unleash.IsEnabled("party.api.get.respondents.id", unleash.WithFallback(false)) {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	return
+}

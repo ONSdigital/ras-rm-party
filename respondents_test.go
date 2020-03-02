@@ -2184,6 +2184,7 @@ func TestPostRespondentsReturns500IfInsertEnrolmentPreparedStatementFails(t *tes
 	assert.True(t, gock.IsDone())
 }
 
+// DELETE /respondents/{id}
 func TestDeleteRespondentsByIDIsFeatureFlagged(t *testing.T) {
 	// Assure that it's properly feature flagged away
 	setDefaults()
@@ -2528,4 +2529,41 @@ func TestDeleteRespondentsByIDReturns500IfTransactionCommitFails(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 	assert.Equal(t, "Can't commit transaction for respondent ID be70e086-7bbc-461c-a565-5b454d748a71: Table locked", errResp.Error)
+}
+
+// GET /respondents/id
+func TestGetRespondentsByIDIsFeatureFlagged(t *testing.T) {
+	// Assure that it's properly feature flagged away
+	setDefaults()
+	setup()
+	toggleFeature("party.api.get.respondents.id", false)
+
+	req := httptest.NewRequest("GET", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusMethodNotAllowed, resp.Code)
+}
+
+func TestGetRespondentsByID(t *testing.T) {
+	setDefaults()
+	setup()
+	toggleFeature("party.api.get.respondents.id", true)
+
+	req := httptest.NewRequest("GET", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+}
+
+func TestGetRespondentsByIDReturns401WhenNotAuthed(t *testing.T) {
+	setDefaults()
+	setup()
+	toggleFeature("party.api.get.respondents.id", true)
+
+	req := httptest.NewRequest("GET", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusUnauthorized, resp.Code)
 }
