@@ -89,7 +89,7 @@ spec:
           - name: RAS_OAUTH_SERVICE_PORT
             value: "$(AUTH_SERVICE_PORT)"
           - name: PORT
-            value: {{ .Values.container.port }}
+            value: "{{ .Values.container.port }}"
           - name: ZIPKIN_DSN
             value: "http://$(ZIPKIN_SERVICE_HOST):$(ZIPKIN_SERVICE_PORT)/api/v1/spans"
           - name: ZIPKIN_SAMPLE_RATE
