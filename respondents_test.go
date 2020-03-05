@@ -2437,7 +2437,7 @@ func TestPatchRespondentsByID(t *testing.T) {
 	respondentRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71", "bob@boblaw.com")
 
 	mock.ExpectBegin()
-	mock.ExpectQuery(selectQueryRegex).WillReturnRows(respondentRows)
+	mock.ExpectQuery(selectQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(respondentRows)
 	mock.ExpectClose()
 
 	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", bytes.NewBuffer(jsonOut))
@@ -2551,7 +2551,7 @@ func TestPatchRespondentsByIDReturns404IfRespondentNotFound(t *testing.T) {
 	}
 
 	mock.ExpectBegin()
-	mock.ExpectQuery(selectQueryRegex).WillReturnRows(sqlmock.NewRows(searchRespondentForPatchingQueryColumns))
+	mock.ExpectQuery(selectQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(sqlmock.NewRows(searchRespondentForPatchingQueryColumns))
 	mock.ExpectClose()
 
 	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", bytes.NewBuffer(jsonOut))
@@ -2601,7 +2601,7 @@ func TestPatchRespondentsByIDReturns409IfEmailNotUnique(t *testing.T) {
 	respondentRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71", "bob@boblaw.com")
 
 	mock.ExpectBegin()
-	mock.ExpectQuery(selectQueryRegex).WillReturnRows(respondentRows)
+	mock.ExpectQuery(selectQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(respondentRows)
 	mock.ExpectQuery(selectQueryRegex).WithArgs("jim@jimbob.com").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow("1"))
 	mock.ExpectClose()
 
@@ -2697,7 +2697,7 @@ func TestPatchRespondentsByIDReturns500IfRetrievingRespondentFails(t *testing.T)
 	}
 
 	mock.ExpectBegin()
-	mock.ExpectQuery(selectQueryRegex).WillReturnError(fmt.Errorf("Connection refused"))
+	mock.ExpectQuery(selectQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnError(fmt.Errorf("Connection refused"))
 	mock.ExpectClose()
 
 	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", bytes.NewBuffer(jsonOut))
@@ -2747,7 +2747,7 @@ func TestPatchRespondentsByIDReturns500IfCheckingEmailUniquenessFails(t *testing
 	respondentRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71", "bob@boblaw.com")
 
 	mock.ExpectBegin()
-	mock.ExpectQuery(selectQueryRegex).WillReturnRows(respondentRows)
+	mock.ExpectQuery(selectQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(respondentRows)
 	mock.ExpectQuery(selectQueryRegex).WithArgs("jim@jimbob.com").WillReturnError(fmt.Errorf("Connection refused"))
 	mock.ExpectClose()
 

@@ -841,7 +841,7 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 	if !reflect.DeepEqual(models.Respondent{}, postRequest.Data) {
 		if emailAddress != postRequest.Data.Attributes.EmailAddress {
 			var count int
-			err = db.QueryRow("SELECT COUNT(*) FROM partysvc.respondents WHERE email_address=$1", respondentUUID.String()).Scan(&count)
+			err = db.QueryRow("SELECT COUNT(*) FROM partysvc.respondents WHERE email_address=$1", postRequest.Data.Attributes.EmailAddress).Scan(&count)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				errorString := models.Error{
