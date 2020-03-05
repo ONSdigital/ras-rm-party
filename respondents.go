@@ -789,6 +789,15 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 		return
 	}
 
+	if postRequest.Data.Attributes.ID != "" && postRequest.Data.Attributes.ID != respondentUUID.String() {
+		w.WriteHeader(http.StatusBadRequest)
+		errorString := models.Error{
+			Error: "ID must not be changed",
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+
 	if db == nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		errorString := models.Error{
