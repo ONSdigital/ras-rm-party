@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -768,7 +769,7 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 		return
 	}
 
-	_, err := uuid.Parse(p.ByName("id"))
+	respondentUUID, err := uuid.Parse(p.ByName("id"))
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		errorString := models.Error{
@@ -789,6 +790,15 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 		return
 	}
 
+	if postRequest.Data.Attributes.ID != "" && postRequest.Data.Attributes.ID != respondentUUID.String() {
+		w.WriteHeader(http.StatusBadRequest)
+		errorString := models.Error{
+			Error: "ID must not be changed",
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+
 	if db == nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		errorString := models.Error{
@@ -798,7 +808,7 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 		return
 	}
 
-	_, err = db.Begin()
+	tx, err := db.Begin()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		errorString := models.Error{
@@ -808,5 +818,88 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 		return
 	}
 
+	var respondentID string
+	var emailAddress string
+	err = db.QueryRow("SELECT id, email_address FROM partysvc.respondents WHERE id=$1", respondentUUID.String()).Scan(&respondentID, &emailAddress)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			w.WriteHeader(http.StatusNotFound)
+			errorString := models.Error{
+				Error: "Respondent does not exist",
+			}
+			json.NewEncoder(w).Encode(errorString)
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			errorString := models.Error{
+				Error: "Error querying DB: " + err.Error(),
+			}
+			json.NewEncoder(w).Encode(errorString)
+		}
+		return
+	}
+
+	if !reflect.DeepEqual(models.Respondent{}, postRequest.Data) {
+		if emailAddress != postRequest.Data.Attributes.EmailAddress {
+			var count int
+			err = db.QueryRow("SELECT COUNT(*) FROM partysvc.respondents WHERE email_address=$1", postRequest.Data.Attributes.EmailAddress).Scan(&count)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				errorString := models.Error{
+					Error: "Error querying DB: " + err.Error(),
+				}
+				json.NewEncoder(w).Encode(errorString)
+				return
+			}
+			if count > 0 {
+				w.WriteHeader(http.StatusConflict)
+				errorString := models.Error{
+					Error: "New email address already in use",
+				}
+				json.NewEncoder(w).Encode(errorString)
+				return
+			}
+		}
+		var updateRespondentsQuery strings.Builder
+		updateRespondentsQuery.WriteString("UPDATE partysvc.respondents SET ")
+		if postRequest.Data.Attributes.FirstName != "" {
+			updateRespondentsQuery.WriteString(" first_name='" + postRequest.Data.Attributes.FirstName + "',")
+		}
+		if postRequest.Data.Attributes.LastName != "" {
+			updateRespondentsQuery.WriteString(" last_name='$'" + postRequest.Data.Attributes.LastName + "',")
+		}
+		if postRequest.Data.Attributes.EmailAddress != "" {
+			updateRespondentsQuery.WriteString(" email_address='$'" + postRequest.Data.Attributes.EmailAddress + "',")
+		}
+		if postRequest.Data.Attributes.Telephone != "" {
+			updateRespondentsQuery.WriteString(" telephone=$'" + postRequest.Data.Attributes.Telephone + "',")
+		}
+		if postRequest.Data.Status != "" {
+			switch postRequest.Data.Status {
+			case "ACTIVE",
+				"CREATED",
+				"SUSPENDED":
+				updateRespondentsQuery.WriteString(" status='" + postRequest.Data.Status + "',")
+			default:
+				w.WriteHeader(http.StatusBadRequest)
+				errorString := models.Error{
+					Error: "Invalid respondent status provided: " + postRequest.Data.Status,
+				}
+				json.NewEncoder(w).Encode(errorString)
+				return
+			}
+		}
+		_, err := tx.Exec(strings.TrimSuffix(updateRespondentsQuery.String(), ",") + " WHERE id='" + respondentID + "'")
+		if err != nil {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			errorString := models.Error{
+				Error: "Can't update respondent for ID " + respondentID + ": " + err.Error(),
+			}
+			json.NewEncoder(w).Encode(errorString)
+			tx.Rollback()
+			return
+		}
+	}
+
+	tx.Commit()
 	w.WriteHeader(http.StatusOK)
 }
