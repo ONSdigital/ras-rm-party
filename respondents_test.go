@@ -2431,7 +2431,11 @@ func TestPatchRespondentsByID(t *testing.T) {
 		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
 	}
 
+	respondentRows := mock.NewRows(searchRespondentExistsQueryColumns)
+	respondentRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71")
+
 	mock.ExpectBegin()
+	mock.ExpectQuery(searchQueryRegex).WillReturnRows(respondentRows)
 	mock.ExpectClose()
 
 	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", bytes.NewBuffer(jsonOut))
@@ -2488,6 +2492,41 @@ func TestPatchRespondentsByIDReturns401WhenNotAuthed(t *testing.T) {
 	router.ServeHTTP(resp, req)
 
 	assert.Equal(t, http.StatusUnauthorized, resp.Code)
+}
+
+func TestPatchRespondentsByIDReturns404IfRespondentNotFound(t *testing.T) {
+	setDefaults()
+	setup()
+	toggleFeature("party.api.patch.respondents.id", true)
+	var err error
+	var mock sqlmock.Sqlmock
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	jsonOut, err := json.Marshal(patchReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(searchQueryRegex).WillReturnRows(sqlmock.NewRows(searchRespondentExistsQueryColumns))
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'PATCH /respondents/{id}', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusNotFound, resp.Code)
+	assert.Equal(t, "Respondent does not exist", errResp.Error)
 }
 
 func TestPatchRespondentsByIDReturns500WhenDBNotInit(t *testing.T) {
@@ -2548,4 +2587,39 @@ func TestPatchRespondentsByIDReturns500IfDBTransactionCouldntBegin(t *testing.T)
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 	assert.Equal(t, "Error creating DB transaction: Transaction failed", errResp.Error)
+}
+
+func TestPatchRespondentsByIDReturns500IfRetrievingRespondentFails(t *testing.T) {
+	setDefaults()
+	setup()
+	toggleFeature("party.api.patch.respondents.id", true)
+	var err error
+	var mock sqlmock.Sqlmock
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	jsonOut, err := json.Marshal(patchReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(searchQueryRegex).WillReturnError(fmt.Errorf("Connection refused"))
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'PATCH /respondents/{id}', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, "Error querying DB: Connection refused", errResp.Error)
 }

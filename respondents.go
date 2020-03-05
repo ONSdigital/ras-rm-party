@@ -768,7 +768,7 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 		return
 	}
 
-	_, err := uuid.Parse(p.ByName("id"))
+	respondentUUID, err := uuid.Parse(p.ByName("id"))
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		errorString := models.Error{
@@ -805,6 +805,25 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 			Error: "Error creating DB transaction: " + err.Error(),
 		}
 		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+
+	var respondentID string
+	err = db.QueryRow("SELECT id FROM partysvc.respondents WHERE id=$1", respondentUUID.String()).Scan(&respondentID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			w.WriteHeader(http.StatusNotFound)
+			errorString := models.Error{
+				Error: "Respondent does not exist",
+			}
+			json.NewEncoder(w).Encode(errorString)
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			errorString := models.Error{
+				Error: "Error querying DB: " + err.Error(),
+			}
+			json.NewEncoder(w).Encode(errorString)
+		}
 		return
 	}
 
