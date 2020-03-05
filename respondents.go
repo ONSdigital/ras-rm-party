@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -818,7 +819,8 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 	}
 
 	var respondentID string
-	err = db.QueryRow("SELECT id FROM partysvc.respondents WHERE id=$1", respondentUUID.String()).Scan(&respondentID)
+	var emailAddress string
+	err = db.QueryRow("SELECT id, email_address FROM partysvc.respondents WHERE id=$1", respondentUUID.String()).Scan(&respondentID, &emailAddress)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			w.WriteHeader(http.StatusNotFound)
@@ -834,6 +836,27 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 			json.NewEncoder(w).Encode(errorString)
 		}
 		return
+	}
+
+	if !reflect.DeepEqual(models.Respondent{}, postRequest.Data) {
+		if emailAddress != postRequest.Data.Attributes.EmailAddress {
+			var count int
+			err = db.QueryRow("SELECT COUNT(*) FROM partysvc.respondents WHERE email_address=$1", respondentUUID.String()).Scan(&count)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				errorString := models.Error{
+					Error: "Error querying DB: " + err.Error(),
+				}
+				json.NewEncoder(w).Encode(errorString)
+			}
+			if count > 0 {
+				w.WriteHeader(http.StatusConflict)
+				errorString := models.Error{
+					Error: "New email address already in use",
+				}
+				json.NewEncoder(w).Encode(errorString)
+			}
+		}
 	}
 
 	w.WriteHeader(http.StatusOK)
