@@ -808,7 +808,7 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 		return
 	}
 
-	_, err = db.Begin()
+	tx, err := db.Begin()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		errorString := models.Error{
@@ -848,6 +848,7 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 					Error: "Error querying DB: " + err.Error(),
 				}
 				json.NewEncoder(w).Encode(errorString)
+				return
 			}
 			if count > 0 {
 				w.WriteHeader(http.StatusConflict)
@@ -855,9 +856,50 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 					Error: "New email address already in use",
 				}
 				json.NewEncoder(w).Encode(errorString)
+				return
 			}
+		}
+		var updateRespondentsQuery strings.Builder
+		updateRespondentsQuery.WriteString("UPDATE partysvc.respondents SET ")
+		if postRequest.Data.Attributes.FirstName != "" {
+			updateRespondentsQuery.WriteString(" first_name='" + postRequest.Data.Attributes.FirstName + "',")
+		}
+		if postRequest.Data.Attributes.LastName != "" {
+			updateRespondentsQuery.WriteString(" last_name='$'" + postRequest.Data.Attributes.LastName + "',")
+		}
+		if postRequest.Data.Attributes.EmailAddress != "" {
+			updateRespondentsQuery.WriteString(" email_address='$'" + postRequest.Data.Attributes.EmailAddress + "',")
+		}
+		if postRequest.Data.Attributes.Telephone != "" {
+			updateRespondentsQuery.WriteString(" telephone=$'" + postRequest.Data.Attributes.Telephone + "',")
+		}
+		if postRequest.Data.Status != "" {
+			switch postRequest.Data.Status {
+			case "ACTIVE",
+				"CREATED",
+				"SUSPENDED":
+				updateRespondentsQuery.WriteString(" status='" + postRequest.Data.Status + "',")
+			default:
+				w.WriteHeader(http.StatusBadRequest)
+				errorString := models.Error{
+					Error: "Invalid respondent status provided: " + postRequest.Data.Status,
+				}
+				json.NewEncoder(w).Encode(errorString)
+				return
+			}
+		}
+		_, err := tx.Exec(strings.TrimSuffix(updateRespondentsQuery.String(), ",") + " WHERE id='" + respondentID + "'")
+		if err != nil {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			errorString := models.Error{
+				Error: "Can't update respondent for ID " + respondentID + ": " + err.Error(),
+			}
+			json.NewEncoder(w).Encode(errorString)
+			tx.Rollback()
+			return
 		}
 	}
 
+	tx.Commit()
 	w.WriteHeader(http.StatusOK)
 }

@@ -2438,6 +2438,7 @@ func TestPatchRespondentsByID(t *testing.T) {
 
 	mock.ExpectBegin()
 	mock.ExpectQuery(selectQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(respondentRows)
+	mock.ExpectExec(updateQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectClose()
 
 	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", bytes.NewBuffer(jsonOut))
@@ -2520,6 +2521,58 @@ func TestPatchRespondentsByIDReturns400IfIDChanged(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, resp.Code)
 	assert.Equal(t, "ID must not be changed", errResp.Error)
+}
+
+func TestPatchRespondentsByIDReturns400IfBadRespondentStatus(t *testing.T) {
+	setDefaults()
+	setup()
+	toggleFeature("party.api.patch.respondents.id", true)
+	var err error
+	var mock sqlmock.Sqlmock
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	patchReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "jim@jimbob.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+			},
+			Status: "WRONG",
+		},
+		EnrolmentCodes: []string{"abc1234", "abc1235"}}
+
+	jsonOut, err := json.Marshal(patchReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
+	}
+
+	respondentRows := mock.NewRows(searchRespondentForPatchingQueryColumns)
+	respondentRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71", "bob@boblaw.com")
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(selectQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(respondentRows)
+	mock.ExpectQuery(selectQueryRegex).WithArgs("jim@jimbob.com").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow("0"))
+	mock.ExpectRollback()
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'PATCH /respondents/{id}', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
+	assert.Equal(t, "Invalid respondent status provided: WRONG", errResp.Error)
 }
 
 func TestPatchRespondentsByIDReturns401WhenNotAuthed(t *testing.T) {
@@ -2617,6 +2670,59 @@ func TestPatchRespondentsByIDReturns409IfEmailNotUnique(t *testing.T) {
 
 	assert.Equal(t, http.StatusConflict, resp.Code)
 	assert.Equal(t, "New email address already in use", errResp.Error)
+}
+
+func TestPatchRespondentsByIDReturns422IfUpdateRespondentPreparedStatementFails(t *testing.T) {
+	setDefaults()
+	setup()
+	toggleFeature("party.api.patch.respondents.id", true)
+	var err error
+	var mock sqlmock.Sqlmock
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	patchReq := models.PostRespondents{
+		Data: models.Respondent{
+			Attributes: models.Attributes{
+				EmailAddress: "jim@jimbob.com",
+				FirstName:    "Bob",
+				LastName:     "Boblaw",
+				Telephone:    "01234567890",
+			},
+			Status: "ACTIVE",
+		},
+		EnrolmentCodes: []string{"abc1234", "abc1235"}}
+
+	jsonOut, err := json.Marshal(patchReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
+	}
+
+	respondentRows := mock.NewRows(searchRespondentForPatchingQueryColumns)
+	respondentRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71", "bob@boblaw.com")
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(selectQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(respondentRows)
+	mock.ExpectQuery(selectQueryRegex).WithArgs("jim@jimbob.com").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow("0"))
+	mock.ExpectExec(updateQueryRegex).WillReturnError(fmt.Errorf("Connection refused"))
+	mock.ExpectRollback()
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'PATCH /respondents/{id}', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
+	assert.Equal(t, "Can't update respondent for ID be70e086-7bbc-461c-a565-5b454d748a71: Connection refused", errResp.Error)
 }
 
 func TestPatchRespondentsByIDReturns500WhenDBNotInit(t *testing.T) {
