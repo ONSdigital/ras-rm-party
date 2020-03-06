@@ -2678,6 +2678,164 @@ func TestPatchRespondentsByIDReturns404IfRespondentNotFound(t *testing.T) {
 	assert.Equal(t, "Respondent does not exist", errResp.Error)
 }
 
+func TestPatchRespondentsByIDReturns404IfEnrolmentCodeNotFound(t *testing.T) {
+	setup()
+	toggleFeature("party.api.patch.respondents.id", true)
+	defer gock.Off()
+
+	var err error
+	var mock sqlmock.Sqlmock
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	jsonOut, err := json.Marshal(patchReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
+	}
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(404)
+
+	respondentRows := mock.NewRows(searchRespondentForPatchingQueryColumns)
+	respondentRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71", "bob@boblaw.com")
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(selectQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(respondentRows)
+	mock.ExpectQuery(selectQueryRegex).WithArgs("jim@jimbob.com").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow("0"))
+	mock.ExpectExec(updateQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectRollback()
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'PATCH /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusNotFound, resp.Code)
+	assert.Equal(t, "Enrolment code not found: abc1234", errResp.Error)
+	assert.True(t, gock.IsDone())
+}
+
+func TestPatchRespondentsByIDReturns404IfCaseNotFound(t *testing.T) {
+	setup()
+	toggleFeature("party.api.patch.respondents.id", true)
+	defer gock.Off()
+
+	var err error
+	var mock sqlmock.Sqlmock
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	jsonOut, err := json.Marshal(patchReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
+	}
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
+		IAC:         "abc1234",
+		Active:      true,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		QuestionSet: "H1"})
+
+	gock.New("http://localhost:8171").Get("/cases/7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb").Reply(404)
+
+	respondentRows := mock.NewRows(searchRespondentForPatchingQueryColumns)
+	respondentRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71", "bob@boblaw.com")
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(selectQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(respondentRows)
+	mock.ExpectQuery(selectQueryRegex).WithArgs("jim@jimbob.com").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow("0"))
+	mock.ExpectExec(updateQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectRollback()
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'PATCH /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusNotFound, resp.Code)
+	assert.Equal(t, "Case not found for enrolment code: abc1234", errResp.Error)
+	assert.True(t, gock.IsDone())
+}
+
+func TestPatchRespondentsByIDReturns404IfCollectionExerciseNotFound(t *testing.T) {
+	setup()
+	toggleFeature("party.api.patch.respondents.id", true)
+	defer gock.Off()
+
+	var err error
+	var mock sqlmock.Sqlmock
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	jsonOut, err := json.Marshal(patchReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
+	}
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
+		IAC:         "abc1234",
+		Active:      true,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		QuestionSet: "H1"})
+
+	gock.New("http://localhost:8171").Get("/cases/7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb").Reply(200).JSON(models.Case{
+		ID:         "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		BusinessID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		CaseGroup: models.CaseGroup{
+			ID:                   "aa9c8e93-5cd9-4876-a2d3-78a87b972134",
+			CollectionExerciseID: "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		},
+	})
+
+	gock.New("http://localhost:8145").Get("/collectionexercises/1010b2f2-8668-498a-afee-3c33cdfe42ea").Reply(404)
+
+	respondentRows := mock.NewRows(searchRespondentForPatchingQueryColumns)
+	respondentRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71", "bob@boblaw.com")
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(selectQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(respondentRows)
+	mock.ExpectQuery(selectQueryRegex).WithArgs("jim@jimbob.com").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow("0"))
+	mock.ExpectExec(updateQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectRollback()
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'PATCH /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusNotFound, resp.Code)
+	assert.Equal(t, "Collection Exercise not found for enrolment code: abc1234", errResp.Error)
+	assert.True(t, gock.IsDone())
+}
+
 func TestPatchRespondentsByIDReturns409IfEmailNotUnique(t *testing.T) {
 	setDefaults()
 	setup()
@@ -2756,6 +2914,56 @@ func TestPatchRespondentsByIDReturns422IfUpdateRespondentPreparedStatementFails(
 
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
 	assert.Equal(t, "Can't update respondent for ID be70e086-7bbc-461c-a565-5b454d748a71: Connection refused", errResp.Error)
+}
+
+func TestPatchRespondentsByIDReturns422IfEnrolmentCodeInactive(t *testing.T) {
+	setup()
+	toggleFeature("party.api.patch.respondents.id", true)
+	defer gock.Off()
+
+	var err error
+	var mock sqlmock.Sqlmock
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	jsonOut, err := json.Marshal(patchReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
+	}
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
+		IAC:         "abc1234",
+		Active:      false,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		QuestionSet: "H1"})
+
+	respondentRows := mock.NewRows(searchRespondentForPatchingQueryColumns)
+	respondentRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71", "bob@boblaw.com")
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(selectQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(respondentRows)
+	mock.ExpectQuery(selectQueryRegex).WithArgs("jim@jimbob.com").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow("0"))
+	mock.ExpectExec(updateQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectRollback()
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'PATCH /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
+	assert.Equal(t, "Enrolment code inactive: abc1234", errResp.Error)
+	assert.True(t, gock.IsDone())
 }
 
 func TestPatchRespondentsByIDReturns500WhenDBNotInit(t *testing.T) {
