@@ -42,7 +42,7 @@ var postReq = models.PostRespondents{
 var patchReq = models.PostRespondents{
 	Data: models.Respondent{
 		Attributes: models.Attributes{
-			EmailAddress: "bob@boblaw.com",
+			EmailAddress: "jim@jimbob.com",
 			FirstName:    "Bob",
 			LastName:     "Boblaw",
 			Telephone:    "01234567890",
@@ -342,6 +342,16 @@ func TestPostRespondents(t *testing.T) {
 	req := httptest.NewRequest("POST", "/v2/respondents", bytes.NewBuffer(jsonOut))
 	req.SetBasicAuth("admin", "secret")
 	router.ServeHTTP(resp, req)
+
+	// This is temporary to try and catch an occasional failure: delete when fixed
+	if resp.Code != http.StatusCreated {
+		var errResp models.Error
+		err = json.NewDecoder(resp.Body).Decode(&errResp)
+		if err != nil {
+			t.Fatal("Error decoding JSON response from 'POST /respondents', ", err.Error())
+		}
+		log.Println("Occasional test failure on POST /respondents: " + errResp.Error)
+	}
 
 	var response models.Respondents
 	err = json.NewDecoder(resp.Body).Decode(&response)
@@ -2416,7 +2426,7 @@ func TestPatchRespondentsByID(t *testing.T) {
 		log.Fatalf("Error setting up an SQL mock")
 	}
 
-	patchReq := models.PostRespondents{
+	doublePatchReq := models.PostRespondents{
 		Data: models.Respondent{
 			Attributes: models.Attributes{
 				EmailAddress: "bob@boblaw.com",
@@ -2428,17 +2438,63 @@ func TestPatchRespondentsByID(t *testing.T) {
 		},
 		EnrolmentCodes: []string{"abc1234", "abc1235"}}
 
-	jsonOut, err := json.Marshal(patchReq)
+	jsonOut, err := json.Marshal(doublePatchReq)
 	if err != nil {
 		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
 	}
 
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
+		IAC:         "abc1234",
+		Active:      true,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		QuestionSet: "H1"})
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1235").Reply(200).JSON(models.IAC{
+		IAC:         "abc1235",
+		Active:      true,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "fbb2d260-da57-4607-b829-a2bd434a01dd",
+		QuestionSet: "H1"})
+
+	gock.New("http://localhost:8171").Get("/cases/7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb").Reply(200).JSON(models.Case{
+		ID:         "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		BusinessID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		CaseGroup: models.CaseGroup{
+			ID:                   "aa9c8e93-5cd9-4876-a2d3-78a87b972134",
+			CollectionExerciseID: "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		},
+	})
+
+	gock.New("http://localhost:8171").Get("/cases/fbb2d260-da57-4607-b829-a2bd434a01dd").Reply(200).JSON(models.Case{
+		ID:         "fbb2d260-da57-4607-b829-a2bd434a01dd",
+		BusinessID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		CaseGroup: models.CaseGroup{
+			ID:                   "3f8dcbaf-d5d4-415f-bb45-c2cb328320eb",
+			CollectionExerciseID: "91b4e876-16af-471e-973e-e3da5ab127bd",
+		},
+	})
+
+	gock.New("http://localhost:8145").Get("/collectionexercises/1010b2f2-8668-498a-afee-3c33cdfe42ea").Reply(200).JSON(models.CollectionExercise{
+		ID:       "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		SurveyID: "0752a892-1a60-40a4-8aa3-2599405a8831",
+	})
+
+	gock.New("http://localhost:8145").Get("/collectionexercises/91b4e876-16af-471e-973e-e3da5ab127bd").Reply(200).JSON(models.CollectionExercise{
+		ID:       "91b4e876-16af-471e-973e-e3da5ab127bd",
+		SurveyID: "c43cafd8-ece0-410f-9887-0b0b5eb681fb",
+	})
+
 	respondentRows := mock.NewRows(searchRespondentForPatchingQueryColumns)
 	respondentRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71", "bob@boblaw.com")
+
+	businessRows := mock.NewRows(searchBusinessesQueryColumns)
+	businessRows.AddRow("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2")
 
 	mock.ExpectBegin()
 	mock.ExpectQuery(selectQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(respondentRows)
 	mock.ExpectExec(updateQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectPrepare(searchBusinessesQueryRegex).ExpectQuery().WithArgs(pq.Array([]string{"ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2"})).WillReturnRows(businessRows)
 	mock.ExpectClose()
 
 	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", bytes.NewBuffer(jsonOut))
@@ -2446,6 +2502,7 @@ func TestPatchRespondentsByID(t *testing.T) {
 	router.ServeHTTP(resp, req)
 
 	assert.Equal(t, http.StatusOK, resp.Code)
+	assert.True(t, gock.IsDone())
 }
 
 func TestPatchRespondentsByIDReturns400IfPassedANonUUID(t *testing.T) {
@@ -2491,7 +2548,7 @@ func TestPatchRespondentsByIDReturns400IfIDChanged(t *testing.T) {
 	setup()
 	toggleFeature("party.api.patch.respondents.id", true)
 
-	patchReq := models.PostRespondents{
+	idChangePatchReq := models.PostRespondents{
 		Data: models.Respondent{
 			Attributes: models.Attributes{
 				EmailAddress: "bob@boblaw.com",
@@ -2504,7 +2561,7 @@ func TestPatchRespondentsByIDReturns400IfIDChanged(t *testing.T) {
 		},
 		EnrolmentCodes: []string{"abc1234", "abc1235"}}
 
-	jsonOut, err := json.Marshal(patchReq)
+	jsonOut, err := json.Marshal(idChangePatchReq)
 	if err != nil {
 		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
 	}
@@ -2535,7 +2592,7 @@ func TestPatchRespondentsByIDReturns400IfBadRespondentStatus(t *testing.T) {
 		log.Fatalf("Error setting up an SQL mock")
 	}
 
-	patchReq := models.PostRespondents{
+	badStatusPatchReq := models.PostRespondents{
 		Data: models.Respondent{
 			Attributes: models.Attributes{
 				EmailAddress: "jim@jimbob.com",
@@ -2547,7 +2604,7 @@ func TestPatchRespondentsByIDReturns400IfBadRespondentStatus(t *testing.T) {
 		},
 		EnrolmentCodes: []string{"abc1234", "abc1235"}}
 
-	jsonOut, err := json.Marshal(patchReq)
+	jsonOut, err := json.Marshal(badStatusPatchReq)
 	if err != nil {
 		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
 	}
@@ -2633,18 +2690,6 @@ func TestPatchRespondentsByIDReturns409IfEmailNotUnique(t *testing.T) {
 		log.Fatalf("Error setting up an SQL mock")
 	}
 
-	patchReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "jim@jimbob.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234", "abc1235"}}
-
 	jsonOut, err := json.Marshal(patchReq)
 	if err != nil {
 		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
@@ -2683,18 +2728,6 @@ func TestPatchRespondentsByIDReturns422IfUpdateRespondentPreparedStatementFails(
 	if err != nil {
 		log.Fatalf("Error setting up an SQL mock")
 	}
-
-	patchReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "jim@jimbob.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234", "abc1235"}}
 
 	jsonOut, err := json.Marshal(patchReq)
 	if err != nil {
@@ -2832,18 +2865,6 @@ func TestPatchRespondentsByIDReturns500IfCheckingEmailUniquenessFails(t *testing
 		log.Fatalf("Error setting up an SQL mock")
 	}
 
-	patchReq := models.PostRespondents{
-		Data: models.Respondent{
-			Attributes: models.Attributes{
-				EmailAddress: "jim@jimbob.com",
-				FirstName:    "Bob",
-				LastName:     "Boblaw",
-				Telephone:    "01234567890",
-			},
-			Status: "ACTIVE",
-		},
-		EnrolmentCodes: []string{"abc1234", "abc1235"}}
-
 	jsonOut, err := json.Marshal(patchReq)
 	if err != nil {
 		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
@@ -2869,4 +2890,162 @@ func TestPatchRespondentsByIDReturns500IfCheckingEmailUniquenessFails(t *testing
 
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 	assert.Equal(t, "Error querying DB: Connection refused", errResp.Error)
+}
+
+func TestPatchRespondentsByIDReturns500IfIACCommunicationsFail(t *testing.T) {
+	// By not setting up the mock properly, we can effectively test an err in http.Get
+	setup()
+	toggleFeature("party.api.patch.respondents.id", true)
+	defer gock.Off()
+
+	var err error
+	var mock sqlmock.Sqlmock
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	jsonOut, err := json.Marshal(patchReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
+	}
+
+	gock.New("http://iac-service").Get("/").Reply(200)
+
+	respondentRows := mock.NewRows(searchRespondentForPatchingQueryColumns)
+	respondentRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71", "bob@boblaw.com")
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(selectQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(respondentRows)
+	mock.ExpectQuery(selectQueryRegex).WithArgs("jim@jimbob.com").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow("0"))
+	mock.ExpectExec(updateQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectRollback()
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'PATCH /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Contains(t, errResp.Error, "Couldn't communicate with IAC service:")
+}
+
+func TestPatchRespondentsByIDReturns500IfCaseCommunicationsFail(t *testing.T) {
+	// By not setting up the mock properly, we can effectively test an err in http.Get
+	setup()
+	toggleFeature("party.api.patch.respondents.id", true)
+	defer gock.Off()
+
+	var err error
+	var mock sqlmock.Sqlmock
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	jsonOut, err := json.Marshal(patchReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
+	}
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
+		IAC:         "abc1234",
+		Active:      true,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		QuestionSet: "H1"})
+
+	gock.New("http://case-service").Get("/").Reply(200)
+
+	respondentRows := mock.NewRows(searchRespondentForPatchingQueryColumns)
+	respondentRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71", "bob@boblaw.com")
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(selectQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(respondentRows)
+	mock.ExpectQuery(selectQueryRegex).WithArgs("jim@jimbob.com").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow("0"))
+	mock.ExpectExec(updateQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectRollback()
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'PATCH /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Contains(t, errResp.Error, "Couldn't communicate with Case service:")
+}
+
+func TestPatchRespondentsByIDReturns500IfCollectionExerciseCommunicationsFail(t *testing.T) {
+	// By not setting up the mock properly, we can effectively test an err in http.Get
+	setup()
+	toggleFeature("party.api.patch.respondents.id", true)
+	defer gock.Off()
+
+	var err error
+	var mock sqlmock.Sqlmock
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	jsonOut, err := json.Marshal(patchReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
+	}
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
+		IAC:         "abc1234",
+		Active:      true,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		QuestionSet: "H1"})
+
+	gock.New("http://localhost:8171").Get("/cases/7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb").Reply(200).JSON(models.Case{
+		ID:         "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		BusinessID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
+		CaseGroup: models.CaseGroup{
+			ID:                   "aa9c8e93-5cd9-4876-a2d3-78a87b972134",
+			CollectionExerciseID: "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		},
+	})
+
+	gock.New("collection-exercise-service").Get("/").Reply(200)
+
+	respondentRows := mock.NewRows(searchRespondentForPatchingQueryColumns)
+	respondentRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71", "bob@boblaw.com")
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(selectQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(respondentRows)
+	mock.ExpectQuery(selectQueryRegex).WithArgs("jim@jimbob.com").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow("0"))
+	mock.ExpectExec(updateQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectRollback()
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'PATCH /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Contains(t, errResp.Error, "Couldn't communicate with Collection Exercise service:")
 }

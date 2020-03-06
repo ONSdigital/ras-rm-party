@@ -85,7 +85,20 @@ func rowsToRespondentsModel(rows *sql.Rows) models.Respondents {
 	return respondents
 }
 
-func checkRowsForBusinessIDs(rows *sql.Rows, enrolments map[string]*newEnrolment) (codeMissing string, ok bool) {
+func checkDatabaseForBusinessIDs(w http.ResponseWriter, enrolments map[string]*newEnrolment, businessIDs []string) (ok bool) {
+	// Ensure that all the businesses we want to associate with exist
+	businessQuery, err := db.Prepare("SELECT party_uuid FROM partysvc.business WHERE party_uuid=ANY($1)")
+	defer businessQuery.Close()
+	rows, err := businessQuery.Query(pq.Array(businessIDs))
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		errorString := models.Error{
+			Error: "Error querying DB: " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return false
+	}
+
 	var existingBusinesses []string
 	if rows != nil {
 		for rows.Next() {
@@ -104,11 +117,17 @@ func checkRowsForBusinessIDs(rows *sql.Rows, enrolments map[string]*newEnrolment
 			}
 		}
 		if !found {
-			return code, false
+			// Won't be able to associate with a business we can't find
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			errorString := models.Error{
+				Error: "Can't associate with the business for enrolment code: " + code,
+			}
+			json.NewEncoder(w).Encode(errorString)
+			return false
 		}
 	}
 
-	return "", true
+	return true
 }
 
 func stringArrayContains(targetArray []string, val string) bool {
@@ -377,26 +396,8 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		return
 	}
 
-	// Ensure that all the businesses we want to associate with exist
-	businessQuery, err := db.Prepare("SELECT party_uuid FROM partysvc.business WHERE party_uuid=ANY($1)")
-	defer businessQuery.Close()
-	rows, err := businessQuery.Query(pq.Array(businessIDs))
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		errorString := models.Error{
-			Error: "Error querying DB: " + err.Error(),
-		}
-		json.NewEncoder(w).Encode(errorString)
-		return
-	}
-
-	if missingCode, ok := checkRowsForBusinessIDs(rows, enrolments); !ok {
-		// Won't be able to associate with a business we can't find
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		errorString := models.Error{
-			Error: "Can't associate with the business for enrolment code: " + missingCode,
-		}
-		json.NewEncoder(w).Encode(errorString)
+	if !checkDatabaseForBusinessIDs(w, enrolments, businessIDs) {
+		// Errors already handled in method
 		return
 	}
 
@@ -905,6 +906,21 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 				Error: "Can't update respondent for ID " + respondentID + ": " + err.Error(),
 			}
 			json.NewEncoder(w).Encode(errorString)
+			tx.Rollback()
+			return
+		}
+	}
+
+	if len(postRequest.EnrolmentCodes) > 0 {
+		enrolments, businessIDs, err := convertIACsToEnrolments(w, postRequest.EnrolmentCodes)
+		if err != nil {
+			// Errors already handled in method
+			tx.Rollback()
+			return
+		}
+
+		if !checkDatabaseForBusinessIDs(w, enrolments, businessIDs) {
+			// Errors already handled in method
 			tx.Rollback()
 			return
 		}
