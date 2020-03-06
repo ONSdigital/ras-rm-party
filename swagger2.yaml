@@ -223,7 +223,7 @@ paths:
       description: | 
         Updates all of the fields specified in the RequestBody for the respondent. 
         This is an atomic operation i.e. if one field can't be updated for whatever reason, none of them will be. 
-        Associations will be created if they don't already exist, else they will be updated.
+        Associations will be updated if they already exist, else they will be ignored. New associations require `enrolmentCodes`.
         `ID` is a valid field in the RequestBody, but shouldn't be changed and a `400 Bad Request` will returned if changing it is attempted.
         The respondent will be enrolled on any surveys associated to any provided `enrolmentCodes`.
       tags:
