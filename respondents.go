@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"reflect"
@@ -119,6 +120,94 @@ func stringArrayContains(targetArray []string, val string) bool {
 		}
 	}
 	return found
+}
+
+func convertIACsToEnrolments(w http.ResponseWriter, codes []string) (enrolments map[string]*newEnrolment, businessIDs []string, err error) {
+	enrolments = map[string]*newEnrolment{}
+	// Check enrolment codes
+	for _, code := range codes {
+		resp, err := http.Get(viper.GetString("iac_service") + "/iacs/" + code)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			errorString := models.Error{
+				Error: "Couldn't communicate with IAC service: " + err.Error(),
+			}
+			json.NewEncoder(w).Encode(errorString)
+			return nil, nil, err
+		}
+		if resp.StatusCode == http.StatusNotFound {
+			w.WriteHeader(http.StatusNotFound)
+			errorString := models.Error{
+				Error: "Enrolment code not found: " + code,
+			}
+			json.NewEncoder(w).Encode(errorString)
+			return nil, nil, errors.New("Enrolment code not found: " + code)
+		}
+		iac := models.IAC{}
+		json.NewDecoder(resp.Body).Decode(&iac)
+
+		if !iac.Active {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			errorString := models.Error{
+				Error: "Enrolment code inactive: " + code,
+			}
+			json.NewEncoder(w).Encode(errorString)
+			return nil, nil, errors.New("Enrolment code inactive: " + code)
+		}
+		enrolments[code] = &newEnrolment{IAC: iac}
+	}
+
+	// Check cases and collection exercises and build up the business check
+	businessIDs = []string{}
+	for code, enrolment := range enrolments {
+		// Case service
+		resp, err := http.Get(viper.GetString("case_service") + "/cases/" + enrolment.IAC.CaseID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			errorString := models.Error{
+				Error: "Couldn't communicate with Case service: " + err.Error(),
+			}
+			json.NewEncoder(w).Encode(errorString)
+			return nil, nil, err
+		}
+		if resp.StatusCode == http.StatusNotFound {
+			w.WriteHeader(http.StatusNotFound)
+			errorString := models.Error{
+				Error: "Case not found for enrolment code: " + code,
+			}
+			json.NewEncoder(w).Encode(errorString)
+			return nil, nil, errors.New("Case not found for enrolment code: " + code)
+		}
+
+		json.NewDecoder(resp.Body).Decode(&enrolment.Case)
+		if !stringArrayContains(businessIDs, enrolment.Case.BusinessID) {
+			businessIDs = append(businessIDs, enrolment.Case.BusinessID)
+		}
+
+		// Collection Exercise service
+		resp, err = http.Get(viper.GetString("collection_exercise_service") + "/collectionexercises/" + enrolment.Case.CaseGroup.CollectionExerciseID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			errorString := models.Error{
+				Error: "Couldn't communicate with Collection Exercise service: " + err.Error(),
+			}
+			json.NewEncoder(w).Encode(errorString)
+			return nil, nil, err
+		}
+		if resp.StatusCode == http.StatusNotFound {
+			w.WriteHeader(http.StatusNotFound)
+			errorString := models.Error{
+				Error: "Collection Exercise not found for enrolment code: " + code,
+			}
+			json.NewEncoder(w).Encode(errorString)
+			return nil, nil, errors.New("Collection Exercise not found for enrolment code: " + code)
+		}
+
+		collectionExercise := models.CollectionExercise{}
+		json.NewDecoder(resp.Body).Decode(&collectionExercise)
+		enrolment.SurveyID = collectionExercise.SurveyID
+	}
+	return enrolments, businessIDs, nil
 }
 
 func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -282,89 +371,10 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		return
 	}
 
-	enrolments := map[string]*newEnrolment{}
-	// Check enrolment codes
-	for _, code := range postRequest.EnrolmentCodes {
-		resp, err := http.Get(viper.GetString("iac_service") + "/iacs/" + code)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			errorString := models.Error{
-				Error: "Couldn't communicate with IAC service: " + err.Error(),
-			}
-			json.NewEncoder(w).Encode(errorString)
-			return
-		}
-		if resp.StatusCode == http.StatusNotFound {
-			w.WriteHeader(http.StatusNotFound)
-			errorString := models.Error{
-				Error: "Enrolment code not found: " + code,
-			}
-			json.NewEncoder(w).Encode(errorString)
-			return
-		}
-		iac := models.IAC{}
-		json.NewDecoder(resp.Body).Decode(&iac)
-
-		if !iac.Active {
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			errorString := models.Error{
-				Error: "Enrolment code inactive: " + code,
-			}
-			json.NewEncoder(w).Encode(errorString)
-			return
-		}
-		enrolments[code] = &newEnrolment{IAC: iac}
-	}
-
-	// Check cases and collection exercises and build up the business check
-	businessIDs := []string{}
-	for code, enrolment := range enrolments {
-		// Case service
-		resp, err := http.Get(viper.GetString("case_service") + "/cases/" + enrolment.IAC.CaseID)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			errorString := models.Error{
-				Error: "Couldn't communicate with Case service: " + err.Error(),
-			}
-			json.NewEncoder(w).Encode(errorString)
-			return
-		}
-		if resp.StatusCode == http.StatusNotFound {
-			w.WriteHeader(http.StatusNotFound)
-			errorString := models.Error{
-				Error: "Case not found for enrolment code: " + code,
-			}
-			json.NewEncoder(w).Encode(errorString)
-			return
-		}
-
-		json.NewDecoder(resp.Body).Decode(&enrolment.Case)
-		if !stringArrayContains(businessIDs, enrolment.Case.BusinessID) {
-			businessIDs = append(businessIDs, enrolment.Case.BusinessID)
-		}
-
-		// Collection Exercise service
-		resp, err = http.Get(viper.GetString("collection_exercise_service") + "/collectionexercises/" + enrolment.Case.CaseGroup.CollectionExerciseID)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			errorString := models.Error{
-				Error: "Couldn't communicate with Collection Exercise service: " + err.Error(),
-			}
-			json.NewEncoder(w).Encode(errorString)
-			return
-		}
-		if resp.StatusCode == http.StatusNotFound {
-			w.WriteHeader(http.StatusNotFound)
-			errorString := models.Error{
-				Error: "Collection Exercise not found for enrolment code: " + code,
-			}
-			json.NewEncoder(w).Encode(errorString)
-			return
-		}
-
-		collectionExercise := models.CollectionExercise{}
-		json.NewDecoder(resp.Body).Decode(&collectionExercise)
-		enrolment.SurveyID = collectionExercise.SurveyID
+	enrolments, businessIDs, err := convertIACsToEnrolments(w, postRequest.EnrolmentCodes)
+	if err != nil {
+		// Errors already handled in method
+		return
 	}
 
 	// Ensure that all the businesses we want to associate with exist
