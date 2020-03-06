@@ -790,8 +790,8 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 		return
 	}
 
-	var postRequest models.PostRespondents
-	err = json.NewDecoder(r.Body).Decode(&postRequest)
+	var patchRequest models.PostRespondents
+	err = json.NewDecoder(r.Body).Decode(&patchRequest)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		errorString := models.Error{
@@ -801,7 +801,7 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 		return
 	}
 
-	if postRequest.Data.Attributes.ID != "" && postRequest.Data.Attributes.ID != respondentUUID.String() {
+	if patchRequest.Data.Attributes.ID != "" && patchRequest.Data.Attributes.ID != respondentUUID.String() {
 		w.WriteHeader(http.StatusBadRequest)
 		errorString := models.Error{
 			Error: "ID must not be changed",
@@ -849,10 +849,10 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 		return
 	}
 
-	if !reflect.DeepEqual(models.Respondent{}, postRequest.Data) {
-		if emailAddress != postRequest.Data.Attributes.EmailAddress {
+	if !reflect.DeepEqual(models.Respondent{}, patchRequest.Data) {
+		if emailAddress != patchRequest.Data.Attributes.EmailAddress {
 			var count int
-			err = db.QueryRow("SELECT COUNT(*) FROM partysvc.respondents WHERE email_address=$1", postRequest.Data.Attributes.EmailAddress).Scan(&count)
+			err = db.QueryRow("SELECT COUNT(*) FROM partysvc.respondents WHERE email_address=$1", patchRequest.Data.Attributes.EmailAddress).Scan(&count)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				errorString := models.Error{
@@ -872,28 +872,28 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 		}
 		var updateRespondentsQuery strings.Builder
 		updateRespondentsQuery.WriteString("UPDATE partysvc.respondents SET ")
-		if postRequest.Data.Attributes.FirstName != "" {
-			updateRespondentsQuery.WriteString(" first_name='" + postRequest.Data.Attributes.FirstName + "',")
+		if patchRequest.Data.Attributes.FirstName != "" {
+			updateRespondentsQuery.WriteString(" first_name='" + patchRequest.Data.Attributes.FirstName + "',")
 		}
-		if postRequest.Data.Attributes.LastName != "" {
-			updateRespondentsQuery.WriteString(" last_name='$'" + postRequest.Data.Attributes.LastName + "',")
+		if patchRequest.Data.Attributes.LastName != "" {
+			updateRespondentsQuery.WriteString(" last_name='$'" + patchRequest.Data.Attributes.LastName + "',")
 		}
-		if postRequest.Data.Attributes.EmailAddress != "" {
-			updateRespondentsQuery.WriteString(" email_address='$'" + postRequest.Data.Attributes.EmailAddress + "',")
+		if patchRequest.Data.Attributes.EmailAddress != "" {
+			updateRespondentsQuery.WriteString(" email_address='$'" + patchRequest.Data.Attributes.EmailAddress + "',")
 		}
-		if postRequest.Data.Attributes.Telephone != "" {
-			updateRespondentsQuery.WriteString(" telephone=$'" + postRequest.Data.Attributes.Telephone + "',")
+		if patchRequest.Data.Attributes.Telephone != "" {
+			updateRespondentsQuery.WriteString(" telephone=$'" + patchRequest.Data.Attributes.Telephone + "',")
 		}
-		if postRequest.Data.Status != "" {
-			switch postRequest.Data.Status {
+		if patchRequest.Data.Status != "" {
+			switch patchRequest.Data.Status {
 			case "ACTIVE",
 				"CREATED",
 				"SUSPENDED":
-				updateRespondentsQuery.WriteString(" status='" + postRequest.Data.Status + "',")
+				updateRespondentsQuery.WriteString(" status='" + patchRequest.Data.Status + "',")
 			default:
 				w.WriteHeader(http.StatusBadRequest)
 				errorString := models.Error{
-					Error: "Invalid respondent status provided: " + postRequest.Data.Status,
+					Error: "Invalid respondent status provided: " + patchRequest.Data.Status,
 				}
 				json.NewEncoder(w).Encode(errorString)
 				return
@@ -911,18 +911,46 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 		}
 	}
 
-	if len(postRequest.EnrolmentCodes) > 0 {
-		enrolments, businessIDs, err := convertIACsToEnrolments(w, postRequest.EnrolmentCodes)
+	if len(patchRequest.EnrolmentCodes) > 0 || len(patchRequest.Data.Associations) > 0 {
+		enrolments, newBusinessIDs, err := convertIACsToEnrolments(w, patchRequest.EnrolmentCodes)
 		if err != nil {
 			// Errors already handled in method
 			tx.Rollback()
 			return
 		}
 
-		if !checkDatabaseForBusinessIDs(w, enrolments, businessIDs) {
-			// Errors already handled in method
+		var existingBusinessRespondents []string
+		rows, err := db.Query("SELECT business_id FROM partysvc.business_respondent WHERE respondent_id=$1", respondentID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			errorString := models.Error{
+				Error: "Can't retrieve existing business associations for respondent ID " + respondentID + ": " + err.Error(),
+			}
+			json.NewEncoder(w).Encode(errorString)
 			tx.Rollback()
 			return
+		}
+		for rows.Next() {
+			var businessID string
+			rows.Scan(&businessID)
+			existingBusinessRespondents = append(existingBusinessRespondents, businessID)
+		}
+
+		// Remove any businesses from the lookup that we already have business respondent records for
+		temp := newBusinessIDs[:0]
+		for _, business := range newBusinessIDs {
+			if !stringArrayContains(existingBusinessRespondents, business) {
+				temp = append(temp, business)
+			}
+		}
+		newBusinessIDs = temp
+
+		if len(newBusinessIDs) > 0 {
+			if !checkDatabaseForBusinessIDs(w, enrolments, newBusinessIDs) {
+				// Errors already handled in method
+				tx.Rollback()
+				return
+			}
 		}
 	}
 
