@@ -961,9 +961,22 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 					Error: "Error creating DB prepared statement: " + err.Error(),
 				}
 				json.NewEncoder(w).Encode(errorString)
+				tx.Rollback()
 				return
 			}
 			defer insertBusinessRespondent.Close()
+			for _, businessID := range newBusinessIDs {
+				_, err := insertBusinessRespondent.Exec(businessID, respondentID, "ACTIVE", time.Now(), time.Now())
+				if err != nil {
+					w.WriteHeader(http.StatusUnprocessableEntity)
+					errorString := models.Error{
+						Error: "Can't create a business/respondent link with respondent ID " + respondentID + " and business ID " + businessID + ": " + err.Error(),
+					}
+					json.NewEncoder(w).Encode(errorString)
+					tx.Rollback()
+					return
+				}
+			}
 		}
 	}
 
