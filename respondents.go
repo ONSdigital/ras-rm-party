@@ -988,6 +988,30 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 				return
 			}
 		}
+
+		// This gets executed for both IAC enrolments and JSON Associations.Enrolments, updating the latter if they already exist
+		insertEnrolment, err := tx.Prepare("INSERT INTO partysvc.enrolment (respondent_id, business_id, survey_id, status, created_on) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO UPDATE")
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			errorString := models.Error{
+				Error: "Error creating DB prepared statement: " + err.Error(),
+			}
+			json.NewEncoder(w).Encode(errorString)
+			return
+		}
+		defer insertEnrolment.Close()
+
+		// This only gets called for IAC enrolments
+		insertPendingEnrolment, err := tx.Prepare(pq.CopyIn("partysvc.pending_enrolment", "case_id", "respondent_id", "business_id", "survey_id", "created_on"))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			errorString := models.Error{
+				Error: "Error creating DB prepared statement: " + err.Error(),
+			}
+			json.NewEncoder(w).Encode(errorString)
+			return
+		}
+		defer insertPendingEnrolment.Close()
 	}
 
 	tx.Commit()
