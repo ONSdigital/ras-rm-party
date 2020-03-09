@@ -954,7 +954,7 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 		}
 
 		if len(newBusinessIDs) > 0 {
-			insertBusinessRespondent, err := tx.Prepare("INSERT INTO partysvc.business_respondent (business_id, respondent_id, status, effective_from, created_on) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO UPDATE")
+			insertBusinessRespondent, err := tx.Prepare(pq.CopyIn("partysvc.business_respondent", "business_id", "respondent_id", "status", "effective_from", "created_on"))
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				errorString := models.Error{
@@ -976,6 +976,16 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 					tx.Rollback()
 					return
 				}
+			}
+			_, err = insertBusinessRespondent.Exec()
+			if err != nil {
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				errorString := models.Error{
+					Error: "Can't commit business/respondent links with respondent ID " + respondentID + ": " + err.Error(),
+				}
+				json.NewEncoder(w).Encode(errorString)
+				tx.Rollback()
+				return
 			}
 		}
 	}

@@ -3101,7 +3101,7 @@ func TestPatchRespondentsByIDReturns422IfBusinessRespondentCouldntBeInserted(t *
 	mock.ExpectExec(updateQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectQuery(selectQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(businessRespondentRows)
 	mock.ExpectPrepare(selectQueryRegex).ExpectQuery().WithArgs(pq.Array([]string{"aaaaaaaa-ae27-45c6-ab0f-c8cd9a48ebc2"})).WillReturnRows(businessRows)
-	mock.ExpectPrepare(insertQueryRegex).ExpectExec().WithArgs("aaaaaaaa-ae27-45c6-ab0f-c8cd9a48ebc2", AnyUUID{}, "ACTIVE", AnyTime{}, AnyTime{}).WillReturnError(fmt.Errorf("Connection refused"))
+	mock.ExpectPrepare(copyQueryRegex).ExpectExec().WithArgs("aaaaaaaa-ae27-45c6-ab0f-c8cd9a48ebc2", AnyUUID{}, "ACTIVE", AnyTime{}, AnyTime{}).WillReturnError(fmt.Errorf("Connection refused"))
 	mock.ExpectRollback()
 	mock.ExpectClose()
 
@@ -3117,6 +3117,79 @@ func TestPatchRespondentsByIDReturns422IfBusinessRespondentCouldntBeInserted(t *
 
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
 	assert.Equal(t, "Can't create a business/respondent link with respondent ID be70e086-7bbc-461c-a565-5b454d748a71 and business ID aaaaaaaa-ae27-45c6-ab0f-c8cd9a48ebc2: Connection refused", errResp.Error)
+	assert.True(t, gock.IsDone())
+}
+
+func TestPatchRespondentsByIDReturns422IfBusinessRespondentCouldntBeCommitted(t *testing.T) {
+	setDefaults()
+	setup()
+	toggleFeature("party.api.patch.respondents.id", true)
+	var err error
+	var mock sqlmock.Sqlmock
+
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		log.Fatalf("Error setting up an SQL mock")
+	}
+
+	jsonOut, err := json.Marshal(patchReq)
+	if err != nil {
+		t.Fatal("Error encoding JSON request body for 'PATCH /respondents/{id}', ", err.Error())
+	}
+
+	gock.New("http://localhost:8121").Get("/iacs/abc1234").Reply(200).JSON(models.IAC{
+		IAC:         "abc1234",
+		Active:      true,
+		LastUsed:    "2017-05-15T10:00:00Z",
+		CaseID:      "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		QuestionSet: "H1"})
+
+	gock.New("http://localhost:8171").Get("/cases/7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb").Reply(200).JSON(models.Case{
+		ID:         "7bc5d41b-0549-40b3-ba76-42f6d4cf3fdb",
+		BusinessID: "aaaaaaaa-ae27-45c6-ab0f-c8cd9a48ebc2",
+		CaseGroup: models.CaseGroup{
+			ID:                   "aa9c8e93-5cd9-4876-a2d3-78a87b972134",
+			CollectionExerciseID: "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		},
+	})
+
+	gock.New("http://localhost:8145").Get("/collectionexercises/1010b2f2-8668-498a-afee-3c33cdfe42ea").Reply(200).JSON(models.CollectionExercise{
+		ID:       "1010b2f2-8668-498a-afee-3c33cdfe42ea",
+		SurveyID: "0752a892-1a60-40a4-8aa3-2599405a8831",
+	})
+
+	respondentRows := mock.NewRows(searchRespondentForPatchingQueryColumns)
+	respondentRows.AddRow("be70e086-7bbc-461c-a565-5b454d748a71", "bob@boblaw.com")
+
+	businessRespondentRows := mock.NewRows(searchBusinessRespondentsQueryColumns)
+	businessRespondentRows.AddRow("ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2")
+
+	businessRows := mock.NewRows(searchBusinessRespondentsQueryColumns)
+	businessRows.AddRow("aaaaaaaa-ae27-45c6-ab0f-c8cd9a48ebc2")
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(selectQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(respondentRows)
+	mock.ExpectQuery(selectQueryRegex).WithArgs("jim@jimbob.com").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow("0"))
+	mock.ExpectExec(updateQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectQuery(selectQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(businessRespondentRows)
+	mock.ExpectPrepare(selectQueryRegex).ExpectQuery().WithArgs(pq.Array([]string{"aaaaaaaa-ae27-45c6-ab0f-c8cd9a48ebc2"})).WillReturnRows(businessRows)
+	mock.ExpectPrepare(copyQueryRegex).ExpectExec().WithArgs("aaaaaaaa-ae27-45c6-ab0f-c8cd9a48ebc2", AnyUUID{}, "ACTIVE", AnyTime{}, AnyTime{}).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(copyQueryRegex).WillReturnError(fmt.Errorf("Connection refused"))
+	mock.ExpectRollback()
+	mock.ExpectClose()
+
+	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", bytes.NewBuffer(jsonOut))
+	req.SetBasicAuth("admin", "secret")
+	router.ServeHTTP(resp, req)
+
+	var errResp models.Error
+	err = json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		t.Fatal("Error decoding JSON response from 'PATCH /respondents', ", err.Error())
+	}
+
+	assert.Equal(t, http.StatusUnprocessableEntity, resp.Code)
+	assert.Equal(t, "Can't commit business/respondent links with respondent ID be70e086-7bbc-461c-a565-5b454d748a71: Connection refused", errResp.Error)
 	assert.True(t, gock.IsDone())
 }
 
@@ -3596,7 +3669,7 @@ func TestPatchRespondentsByIDReturns500IfInsertBusinessRespondentPreparedStateme
 	mock.ExpectExec(updateQueryRegex).WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectQuery(selectQueryRegex).WithArgs("be70e086-7bbc-461c-a565-5b454d748a71").WillReturnRows(businessRespondentRows)
 	mock.ExpectPrepare(selectQueryRegex).ExpectQuery().WithArgs(pq.Array([]string{"aaaaaaaa-ae27-45c6-ab0f-c8cd9a48ebc2"})).WillReturnRows(businessRows)
-	mock.ExpectPrepare(insertQueryRegex).WillReturnError(fmt.Errorf("Syntax error"))
+	mock.ExpectPrepare(copyQueryRegex).WillReturnError(fmt.Errorf("Syntax error"))
 	mock.ExpectRollback()
 	mock.ExpectClose()
 
