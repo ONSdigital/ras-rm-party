@@ -439,7 +439,7 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		return
 	}
 
-	insertBusinessRespondent, err := tx.Prepare(pq.CopyIn("partysvc.respondent", "business_id", "respondent_id", "status", "effective_from", "created_on"))
+	insertBusinessRespondent, err := tx.Prepare(pq.CopyIn("partysvc.business_respondent", "business_id", "respondent_id", "status", "effective_from", "created_on"))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		errorString := models.Error{
@@ -876,13 +876,13 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 			updateRespondentsQuery.WriteString(" first_name='" + patchRequest.Data.Attributes.FirstName + "',")
 		}
 		if patchRequest.Data.Attributes.LastName != "" {
-			updateRespondentsQuery.WriteString(" last_name='$'" + patchRequest.Data.Attributes.LastName + "',")
+			updateRespondentsQuery.WriteString(" last_name='" + patchRequest.Data.Attributes.LastName + "',")
 		}
 		if patchRequest.Data.Attributes.EmailAddress != "" {
-			updateRespondentsQuery.WriteString(" email_address='$'" + patchRequest.Data.Attributes.EmailAddress + "',")
+			updateRespondentsQuery.WriteString(" email_address='" + patchRequest.Data.Attributes.EmailAddress + "',")
 		}
 		if patchRequest.Data.Attributes.Telephone != "" {
-			updateRespondentsQuery.WriteString(" telephone=$'" + patchRequest.Data.Attributes.Telephone + "',")
+			updateRespondentsQuery.WriteString(" telephone='" + patchRequest.Data.Attributes.Telephone + "',")
 		}
 		if patchRequest.Data.Status != "" {
 			switch patchRequest.Data.Status {
@@ -951,6 +951,19 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 				tx.Rollback()
 				return
 			}
+		}
+
+		if len(newBusinessIDs) > 0 {
+			insertBusinessRespondent, err := tx.Prepare("INSERT INTO partysvc.business_respondent (business_id, respondent_id, status, effective_from, created_on) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO UPDATE")
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				errorString := models.Error{
+					Error: "Error creating DB prepared statement: " + err.Error(),
+				}
+				json.NewEncoder(w).Encode(errorString)
+				return
+			}
+			defer insertBusinessRespondent.Close()
 		}
 	}
 
