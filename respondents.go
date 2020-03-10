@@ -1116,5 +1116,20 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 
 	disableEnrolmentCodes(patchRequest.EnrolmentCodes)
 
+	// Get the new state of the respondent to return
+	rows, err := db.Query("SELECT r.id, r.email_address, r.first_name, r.last_name, r.telephone, r.status, br.business_id, e.status AS enrolment_status, e.survey_id "+
+		"FROM partysvc.respondent r JOIN partysvc.business_respondent br ON r.id=br.respondent_id "+
+		"JOIN partysvc.enrolment e ON br.business_id=e.business_id AND br.respondent_id=e.respondent_id "+
+		"WHERE r.id=$1", respondentID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		errorString := models.Error{
+			Error: "Update complete. Error querying DB for new respondent state: " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(rowsToRespondentsModel(rows))
 }
