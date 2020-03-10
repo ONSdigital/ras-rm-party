@@ -955,9 +955,7 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 				tx.Rollback()
 				return
 			}
-		}
 
-		if len(newBusinessIDs) > 0 {
 			insertBusinessRespondent, err := tx.Prepare(pq.CopyIn("partysvc.business_respondent", "business_id", "respondent_id", "status", "effective_from", "created_on"))
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
@@ -993,56 +991,66 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 			}
 		}
 
-		// This gets executed for both IAC enrolments and JSON Associations.Enrolments, updating the latter if they already exist
-		insertEnrolment, err := tx.Prepare("INSERT INTO partysvc.enrolment (respondent_id, business_id, survey_id, status, created_on) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO UPDATE")
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			errorString := models.Error{
-				Error: "Error creating DB prepared statement: " + err.Error(),
-			}
-			json.NewEncoder(w).Encode(errorString)
-			tx.Rollback()
-			return
-		}
-		defer insertEnrolment.Close()
-
-		// This only gets called for IAC enrolments
-		insertPendingEnrolment, err := tx.Prepare(pq.CopyIn("partysvc.pending_enrolment", "case_id", "respondent_id", "business_id", "survey_id", "created_on"))
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			errorString := models.Error{
-				Error: "Error creating DB prepared statement: " + err.Error(),
-			}
-			json.NewEncoder(w).Encode(errorString)
-			tx.Rollback()
-			return
-		}
-		defer insertPendingEnrolment.Close()
-
-		for _, enrolment := range enrolments {
-			_, err := insertEnrolment.Exec(respondentID, enrolment.Case.BusinessID, enrolment.SurveyID, "PENDING", time.Now())
-			if err != nil {
-				w.WriteHeader(http.StatusUnprocessableEntity)
-				errorString := models.Error{
-					Error: "Can't create an Enrolment with respondent ID " + respondentID + " and business ID " + enrolment.Case.BusinessID + ": " + err.Error(),
-				}
-				json.NewEncoder(w).Encode(errorString)
-				tx.Rollback()
-				return
-			}
-
-			_, err = insertPendingEnrolment.Exec(enrolment.Case.ID, respondentID, enrolment.Case.BusinessID, enrolment.SurveyID, time.Now())
-			if err != nil {
-				w.WriteHeader(http.StatusUnprocessableEntity)
-				errorString := models.Error{
-					Error: "Can't create a Pending Enrolment with respondent ID " + respondentID + " and business ID " + enrolment.Case.BusinessID + ": " + err.Error(),
-				}
-				json.NewEncoder(w).Encode(errorString)
-				tx.Rollback()
-				return
-			}
-		}
 		if len(enrolments) > 0 {
+			insertEnrolment, err := tx.Prepare(pq.CopyIn("partysvc.enrolment", "respondent_id", "business_id", "survey_id", "status", "created_on"))
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				errorString := models.Error{
+					Error: "Error creating DB prepared statement: " + err.Error(),
+				}
+				json.NewEncoder(w).Encode(errorString)
+				tx.Rollback()
+				return
+			}
+			defer insertEnrolment.Close()
+
+			insertPendingEnrolment, err := tx.Prepare(pq.CopyIn("partysvc.pending_enrolment", "case_id", "respondent_id", "business_id", "survey_id", "created_on"))
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				errorString := models.Error{
+					Error: "Error creating DB prepared statement: " + err.Error(),
+				}
+				json.NewEncoder(w).Encode(errorString)
+				tx.Rollback()
+				return
+			}
+			defer insertPendingEnrolment.Close()
+
+			for _, enrolment := range enrolments {
+				_, err := insertEnrolment.Exec(respondentID, enrolment.Case.BusinessID, enrolment.SurveyID, "PENDING", time.Now())
+				if err != nil {
+					w.WriteHeader(http.StatusUnprocessableEntity)
+					errorString := models.Error{
+						Error: "Can't create an Enrolment with respondent ID " + respondentID + " and business ID " + enrolment.Case.BusinessID + ": " + err.Error(),
+					}
+					json.NewEncoder(w).Encode(errorString)
+					tx.Rollback()
+					return
+				}
+
+				_, err = insertPendingEnrolment.Exec(enrolment.Case.ID, respondentID, enrolment.Case.BusinessID, enrolment.SurveyID, time.Now())
+				if err != nil {
+					w.WriteHeader(http.StatusUnprocessableEntity)
+					errorString := models.Error{
+						Error: "Can't create a Pending Enrolment with respondent ID " + respondentID + " and business ID " + enrolment.Case.BusinessID + ": " + err.Error(),
+					}
+					json.NewEncoder(w).Encode(errorString)
+					tx.Rollback()
+					return
+				}
+			}
+
+			_, err = insertEnrolment.Exec()
+			if err != nil {
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				errorString := models.Error{
+					Error: "Can't commit enrolments with respondent ID " + respondentID + ": " + err.Error(),
+				}
+				json.NewEncoder(w).Encode(errorString)
+				tx.Rollback()
+				return
+			}
+
 			_, err = insertPendingEnrolment.Exec()
 			if err != nil {
 				w.WriteHeader(http.StatusUnprocessableEntity)
@@ -1054,8 +1062,53 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 				return
 			}
 		}
+
+		if len(patchRequest.Data.Associations) > 0 {
+			updateEnrolment, err := tx.Prepare("UPDATE partysvc.enrolment SET status=$1 WHERE respondent_id=$2 AND business_id=$3 AND survey_id=$4")
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				errorString := models.Error{
+					Error: "Error creating DB prepared statement: " + err.Error(),
+				}
+				json.NewEncoder(w).Encode(errorString)
+				tx.Rollback()
+				return
+			}
+			for _, assoc := range patchRequest.Data.Associations {
+				for _, enrolment := range assoc.Enrolments {
+					res, err := updateEnrolment.Exec(enrolment.EnrolmentStatus, respondentID, assoc.ID, enrolment.SurveyID)
+					if err != nil {
+						w.WriteHeader(http.StatusUnprocessableEntity)
+						errorString := models.Error{
+							Error: "Can't update an Enrolment with respondent ID " + respondentID + " and business ID " + assoc.ID + ": " + err.Error(),
+						}
+						json.NewEncoder(w).Encode(errorString)
+						tx.Rollback()
+						return
+					}
+					if aff, _ := res.RowsAffected(); aff == 0 {
+						w.WriteHeader(http.StatusNotFound)
+						errorString := models.Error{
+							Error: "Can't find enrolment to update for respondent ID " + respondentID + " and survey ID " + enrolment.SurveyID,
+						}
+						json.NewEncoder(w).Encode(errorString)
+						tx.Rollback()
+						return
+					}
+				}
+			}
+		}
 	}
 
-	tx.Commit()
+	err = tx.Commit()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		errorString := models.Error{
+			Error: "Can't commit transaction for respondent ID " + respondentID + ": " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(errorString)
+		tx.Rollback()
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 }
