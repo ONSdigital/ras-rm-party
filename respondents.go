@@ -229,6 +229,24 @@ func convertIACsToEnrolments(w http.ResponseWriter, codes []string) (enrolments 
 	return enrolments, businessIDs, nil
 }
 
+func disableEnrolmentCodes(codes []string) {
+	for _, code := range codes {
+		// IAC service
+		body := bytes.NewBuffer([]byte(`{"updatedBy": "Party Service"}`))
+		req, _ := http.NewRequest(http.MethodPut, viper.GetString("iac_service")+"/"+code, body)
+		resp, err := http.DefaultClient.Do(req)
+		// It's fine if this fails - log the error and move on. We should still give a 200 OK response
+		if err != nil {
+			log.Println("Error deactivating enrolment code " + code + ": " + err.Error())
+			continue
+		}
+		if resp.StatusCode != http.StatusOK {
+			log.Println("Error deactivating enrolment code " + code + ": Received status code " + strconv.Itoa(resp.StatusCode) + " from IAC service")
+			continue
+		}
+	}
+}
+
 func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	if !unleash.IsEnabled("party.api.get.respondents", unleash.WithFallback(false)) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -575,22 +593,7 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		return
 	}
 
-	// Deactivate the enrolment codes
-	for _, code := range postRequest.EnrolmentCodes {
-		// IAC service
-		body := bytes.NewBuffer([]byte(`{"updatedBy": "Party Service"}`))
-		req, _ := http.NewRequest(http.MethodPut, viper.GetString("iac_service")+"/"+code, body)
-		resp, err := http.DefaultClient.Do(req)
-		// It's fine if this fails - log the error and move on. We should still give a 200 OK response
-		if err != nil {
-			log.Println("Error deactivating enrolment code " + code + ": " + err.Error())
-			continue
-		}
-		if resp.StatusCode != http.StatusOK {
-			log.Println("Error deactivating enrolment code " + code + ": Received status code " + strconv.Itoa(resp.StatusCode) + " from IAC service")
-			continue
-		}
-	}
+	disableEnrolmentCodes(postRequest.EnrolmentCodes)
 
 	response := models.Respondents{
 		Data: []models.Respondent{
@@ -1110,5 +1113,8 @@ func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.P
 		tx.Rollback()
 		return
 	}
+
+	disableEnrolmentCodes(patchRequest.EnrolmentCodes)
+
 	w.WriteHeader(http.StatusOK)
 }
