@@ -566,7 +566,7 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 
 	err = tx.Commit()
 	if err != nil {
-		w.WriteHeader(http.StatusUnprocessableEntity)
+		w.WriteHeader(http.StatusInternalServerError)
 		errorString := models.Error{
 			Error: "Can't commit database transaction for respondent ID " + respondentID + ": " + err.Error(),
 		}
