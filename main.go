@@ -74,7 +74,7 @@ func main() {
 	setDefaults()
 
 	// Feature flagging
-	unleash.Initialize(unleash.WithListener(&unleash.DebugListener{}),
+	unleash.Initialize(unleash.WithListener(&BasicListener{}),
 		unleash.WithAppName(viper.GetString("service_name")),
 		unleash.WithUrl(viper.GetString("unleash_uri")))
 
