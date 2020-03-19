@@ -139,23 +139,41 @@ spec:
                 name: oauth-secret
                 key: oauth-client-secret
           - name: RAS_CASE_SERVICE_HOST
+            {{- if .Values.dns.enabled }}
+            value: "http://case.{{ .Values.namespace }}.svc.cluster.local"
+            {{- else }}
             value: "http://$(CASE_SERVICE_HOST)"
+            {{- end }}
           - name: RAS_CASE_SERVICE_PORT
+            {{- if .Values.dns.enabled }}
+            value: "{{ .Values.dns.wellKnownPort }}"
+            {{- else }}
             value: "$(CASE_SERVICE_PORT)"
+            {{- end }}
           - name: RAS_COLLEX_SERVICE_HOST
+            {{- if .Values.dns.enabled }}
+            value: "http://collection-exercise.{{ .Values.namespace }}.svc.cluster.local"
+            {{- else }}
             value: "http://$(COLLECTION_EXERCISE_SERVICE_HOST)"
+            {{- end }}
           - name: RAS_COLLEX_SERVICE_PORT
+            {{- if .Values.dns.enabled }}
+            value: "{{ .Values.dns.wellKnownPort }}"
+            {{- else }}
             value: "$(COLLECTION_EXERCISE_SERVICE_PORT)"
-          - name: RAS_SURVEY_SERVICE_HOST
-            value: "http://$(SURVEY_SERVICE_HOST)"
+            {{- end }}
           - name: RAS_IAC_SERVICE_HOST
+            {{- if .Values.dns.enabled }}
+            value: "http://iac.{{ .Values.namespace }}.svc.cluster.local"
+            {{- else }}
             value: "http://$(IAC_SERVICE_HOST)"
+            {{- end }}
           - name: RAS_IAC_SERVICE_PORT
+            {{- if .Values.dns.enabled }}
+            value: "{{ .Values.dns.wellKnownPort }}"
+            {{- else }}
             value: "$(IAC_SERVICE_PORT)"
-          - name: RAS_OAUTH_SERVICE_HOST
-            value: "http://$(AUTH_SERVICE_HOST)"
-          - name: RAS_OAUTH_SERVICE_PORT
-            value: "$(AUTH_SERVICE_PORT)"
+            {{- end }}
           - name: PORT
             value: "{{ .Values.container.port }}"
           - name: ZIPKIN_DSN
