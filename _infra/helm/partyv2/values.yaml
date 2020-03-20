@@ -27,3 +27,7 @@ service:
 resources:
   requests:
     memory: "128Mi"
+
+dns:
+  enabled: false
+  wellKnownPort: 8080
