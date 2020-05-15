@@ -1,0 +1,7 @@
+timeout: 20m
+steps:
+    - name: 'gcr.io/cloud-builders/docker'
+      args: ['build', '--tag=eu.gcr.io/ons-rasrmbs-management/ras-rm-party:latest', '.']
+    - name: 'gcr.io/cloud-builders/docker'
+      args: ['run', 'eu.gcr.io/ons-rasrmbs-management/ras-rm-party:latest', 'go', 'test']
+images: ['eu.gcr.io/ons-rasrmbs-management/ras-rm-party:latest']
