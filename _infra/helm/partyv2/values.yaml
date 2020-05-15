@@ -8,6 +8,7 @@ rollingUpdate:
 
 image:
   name: eu.gcr.io/ons-rasrmbs-management
+  devRepo: eu.gcr.io/ons-rasrmbs-management
   pullPolicy: Always
   tag: latest
 
