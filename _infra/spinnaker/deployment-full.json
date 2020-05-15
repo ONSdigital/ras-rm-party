@@ -13,7 +13,7 @@
     "devDeploymentCluster": "dev",
     "devDeploymentNamespace": "dev"
   },
-  "exclude": [],
+  "exclude": ["triggers"],
   "triggers": [],
   "parameters": [],
   "notifications": [],

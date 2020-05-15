@@ -24,4 +24,4 @@ steps:
         - 'CLOUDSDK_CONTAINER_CLUSTER=k8s-ras'
     - name: 'gcr.io/cloud-builders/gsutil'
       args: ['cp', '-r', 'partyv2-*.tgz', 'gs://ras-rm-artifacts/partyv2/']
-images: ['eu.gcr.io/ons-rasrmbs-management/ras-rm-party:$COMMIT_SHA']
+images: ['eu.gcr.io/ons-rasrmbs-management/partyv2:$COMMIT_SHA']
