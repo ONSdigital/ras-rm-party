@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/ONSdigital/ras-rm-party/models"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -28,7 +27,7 @@ func TestInfo(t *testing.T) {
 		t.Fatal("Error decoding JSON response from 'GET /info', ", err.Error())
 	}
 
-	assert.Equal(t, viper.GetString("service_name"), infoResp.Name)
+	assert.Equal(t, "Hello world", infoResp.Name)
 }
 
 func TestInfoReturns301WithTrailingBackslash(t *testing.T) {
