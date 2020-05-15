@@ -11,7 +11,7 @@ import (
 
 func getInfo(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	info := models.Info{
-		Name:    "Hello world",
+		Name:    "Hello world 2",
 		Version: viper.GetString("app_version"),
 	}
 	w.Header().Set("Content-Type", "application/json")
