@@ -17,11 +17,11 @@ steps:
         - 'CLOUDSDK_COMPUTE_ZONE=europe-west2-a'
         - 'CLOUDSDK_CONTAINER_CLUSTER=k8s-ras'
     - name: 'gcr.io/rm-ras-sandbox/helm:latest'
-      args: ['package', '-d', 'helm-chart-build', '_infra/helm/partyv2']
+      args: ['package', '_infra/helm/partyv2']
       env:
         - 'CLOUDSDK_COMPUTE_REGION=europe-west2'
         - 'CLOUDSDK_COMPUTE_ZONE=europe-west2-a'
         - 'CLOUDSDK_CONTAINER_CLUSTER=k8s-ras'
     - name: 'gcr.io/cloud-builders/gsutil'
-      args: ['cp', '-r', 'helm-chart-build/partyv2-*.tgz', 'gs://ras-rm-artifacts']
+      args: ['cp', '-r', 'partyv2-*.tgz', 'gs://ras-rm-artifacts']
 images: ['eu.gcr.io/ons-rasrmbs-management/ras-rm-party:$COMMIT_SHA']
