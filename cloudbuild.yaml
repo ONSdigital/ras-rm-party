@@ -4,4 +4,12 @@ steps:
       args: ['build', '--tag=eu.gcr.io/ons-rasrmbs-management/ras-rm-party:$COMMIT_SHA', '.']
     - name: 'gcr.io/cloud-builders/docker'
       args: ['run', 'eu.gcr.io/ons-rasrmbs-management/ras-rm-party:$COMMIT_SHA', 'go', 'test']
+    - name: 'eu.gcr.io/ons-rasrmbs-management/helm'
+      args: ['helm', 'repo', 'add', 'stable', 'https://kubernetes-charts.storage.googleapis.com']
+    - name: 'eu.gcr.io/ons-rasrmbs-management/helm'
+      args: ['helm', 'dep', 'up', '_infra/helm']
+    - name: 'eu.gcr.io/ons-rasrmbs-management/helm'
+      args: ['helm', 'package', '-d', 'helm-chart-build', '_infra/helm']
+    - name: 'gcr.io/cloud-builders/gsutil'
+      args: ['cp', '-r', 'helm-chart-build/partyv2-*.tgz', 'gs://ras-rm-artifacts']
 images: ['eu.gcr.io/ons-rasrmbs-management/ras-rm-party:$COMMIT_SHA']
