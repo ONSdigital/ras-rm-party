@@ -4,7 +4,8 @@ RUN apt-get update\
      && apt-get install curl -y --no-install-recommends\
      && apt-get clean \
      && rm -rf /var/lib/apt/lists/*
-EXPOSE 8059
+
+RUN make build
 
 COPY build/linux-amd64/bin/main /usr/local/bin/
 
