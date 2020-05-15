@@ -1,9 +1,9 @@
 timeout: 20m
 steps:
     - name: 'gcr.io/cloud-builders/docker'
-      args: ['build', '--tag=eu.gcr.io/ons-rasrmbs-management/ras-rm-party:$COMMIT_SHA', '.']
+      args: ['build', '--tag=eu.gcr.io/ons-rasrmbs-management/partyv2:$COMMIT_SHA', '.']
     - name: 'gcr.io/cloud-builders/docker'
-      args: ['run', 'eu.gcr.io/ons-rasrmbs-management/ras-rm-party:$COMMIT_SHA', 'go', 'test']
+      args: ['run', 'eu.gcr.io/ons-rasrmbs-management/partyv2:$COMMIT_SHA', 'go', 'test']
     - name: 'gcr.io/rm-ras-sandbox/helm:latest'
       args: ['repo', 'add', 'stable', 'https://kubernetes-charts.storage.googleapis.com']
       env:
