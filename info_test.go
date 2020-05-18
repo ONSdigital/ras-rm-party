@@ -27,7 +27,7 @@ func TestInfo(t *testing.T) {
 		t.Fatal("Error decoding JSON response from 'GET /info', ", err.Error())
 	}
 
-	assert.Equal(t, "Hello world", infoResp.Name)
+	assert.Equal(t, "ras-rm-party", infoResp.Name)
 }
 
 func TestInfoReturns301WithTrailingBackslash(t *testing.T) {
