@@ -36,6 +36,9 @@ jobs:
     - name: Build
       run: |
         docker build -t "$REGISTRY_HOSTNAME"/"$HOST"/"$IMAGE":latest .
+    - name: Unit Test
+      run: |
+        docker run "$REGISTRY_HOSTNAME"/"$HOST"/"$IMAGE":latest go test
     - name: Publish
       run: |
         docker push "$REGISTRY_HOSTNAME"/"$HOST"/"$IMAGE":latest
