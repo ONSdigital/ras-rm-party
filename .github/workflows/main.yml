@@ -47,10 +47,11 @@ jobs:
         helm dep up _infra/helm/partyv2
         helm package _infra/helm/partyv2
     - name: Publish Charts
+      if: github.ref == 'refs/heads/master'
       run: |
         gsutil cp partyv2-*.tgz gs://ras-rm-artifacts/partyv2/
     - uses: actions/create-release@v1
-      if: ${{ github.event.pull_request.merged }}
+      if: github.ref == 'refs/heads/master'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
