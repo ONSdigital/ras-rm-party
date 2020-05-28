@@ -11,9 +11,13 @@ on:
     branches: [ master ]
 
 env:
-  IMAGE: sandbox
+  GITHUB_SHA: ${{ github.sha }}
+  GITHUB_REF: ${{ github.ref }}
+  IMAGE: partyv2
   REGISTRY_HOSTNAME: eu.gcr.io
   HOST: ${{ secrets.GOOGLE_PROJECT_ID }}
+  RELEASE_HOST: ${{ secrets.RELEASE_PROJECT_ID }}
+  CHART_DIRECTORY: _infra/helm/partyv2
 
 
 jobs:
@@ -25,6 +29,9 @@ jobs:
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
+      with:
+        fetch-depth: '0'
+        token: ${{ secrets.BOT_TOKEN }}
 
     - uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
       with:
@@ -35,30 +42,100 @@ jobs:
     # Build and tag docker file
     - name: Build
       run: |
-        docker build -t "$REGISTRY_HOSTNAME"/"$HOST"/"$IMAGE":latest .
+        docker build -t "$REGISTRY_HOSTNAME"/"$HOST"/"$IMAGE":$GITHUB_SHA .
     - name: Unit Test
       run: |
-        docker run "$REGISTRY_HOSTNAME"/"$HOST"/"$IMAGE":latest go test
+        docker run "$REGISTRY_HOSTNAME"/"$HOST"/"$IMAGE":$GITHUB_SHA go test
     - name: Publish
       run: |
-        docker push "$REGISTRY_HOSTNAME"/"$HOST"/"$IMAGE":latest
-    - name: Helm
+        docker push "$REGISTRY_HOSTNAME"/"$HOST"/"$IMAGE":$GITHUB_SHA
+    
+    - name: template helm
+      run: |
+        helm template _infra/helm/partyv2
+
+    - name: Set current tag
+      if: github.ref != 'refs/heads/master'
+      id: vars
+      run: |
+        git fetch --tags
+        echo ::set-output name=tag::$(git describe --tags --abbrev=0)
+
+    - name: update version
+      if: github.ref != 'refs/heads/master'
+      env:
+        GITHUB_TOKEN: ${{ secrets.BOT_TOKEN }}
+        COMMIT_MSG: |
+          [ci skip] auto patch increment
+          skip-checks: true
+      shell: bash
+      run: |
+        echo "Current git version: ${{ steps.vars.outputs.tag }}"
+        export APP_VERSION=$(grep -E "appVersion:\s+" $CHART_DIRECTORY/Chart.yaml | cut -d" " -f2 | sed -r 's/"//g')
+        echo "appVersion: $APP_VERSION"
+        if [ ${{ steps.vars.outputs.tag }} = $APP_VERSION ]; then
+          echo "versions match, incrementing patch"
+          OLD_PATCH=$(echo ${{ steps.vars.outputs.tag }} | cut -d '.' -f3)
+          echo "OLD patch: $OLD_PATCH"
+          NEW_PATCH=$(($OLD_PATCH + 1))
+          echo "New patch version: $NEW_PATCH"
+          NEW_VERSION="appVersion: $(echo ${{ steps.vars.outputs.tag }} | sed -e "s/[0-9]\{1,3\}/$NEW_PATCH/3")"
+          echo "new version: $NEW_VERSION"
+          sed -i -e "s/appVersion: .*/$NEW_VERSION/g" $CHART_DIRECTORY/Chart.yaml
+
+          git config user.name "ras-rm-bot"
+          git config user.email "${{ secrets.BOT_EMAIL }}"
+
+          git remote set-url origin https://ras-rm-bot:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
+
+          git remote update
+          git fetch
+          git checkout ${{ github.head_ref }}
+          git add $CHART_DIRECTORY/Chart.yaml
+          git commit -m "$COMMIT_MSG"
+
+          git push 
+        else
+          echo "git version and appVersion do not not match"
+          echo "Using current appVersion: $APP_VERSION"
+        fi
+
+    - name: output new version
+      if: github.ref == 'refs/heads/master'
+      id: release
+      shell: bash
+      run: |
+        echo ::set-output name=version::$(grep -E "appVersion:\s+" $CHART_DIRECTORY/Chart.yaml | cut -d" " -f2 | sed -r 's/"//g')
+
+    - name: package helm
+      if: github.ref == 'refs/heads/master'
       run: |
         helm dep up _infra/helm/partyv2
         helm package _infra/helm/partyv2
+
+    - name: Build Release Image
+      if: github.ref == 'refs/heads/master'
+      run: |
+        docker build -t "$REGISTRY_HOSTNAME"/"$RELEASE_HOST"/"$IMAGE":${{ steps.release.outputs.version }} .
+    - name: Push Release image
+      if: github.ref == 'refs/heads/master'
+      run: |
+        docker push "$REGISTRY_HOSTNAME"/"$RELEASE_HOST"/"$IMAGE":${{ steps.release.outputs.version }}
+    
     - name: Publish Charts
       if: github.ref == 'refs/heads/master'
       run: |
         gsutil cp partyv2-*.tgz gs://ras-rm-artifacts/partyv2/
+
     - uses: actions/create-release@v1
       if: github.ref == 'refs/heads/master'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
+        tag_name: ${{ steps.release.outputs.version }}
+        release_name: ${{ steps.release.outputs.version }}
         body: |
-          Changes in this Release
-          - Some Trello board ticket link.
+          Automated release
+          ${{ steps.release.outputs.version }}
         draft: false
         prerelease: false
