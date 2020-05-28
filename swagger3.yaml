@@ -1,0 +1,48 @@
+openapi: 3.0.2
+info:
+  title: RAS/RM Respondent Service
+  description: A service for dealing with respondents
+  version: "1.0"
+
+servers:
+  - url: https://localhost:9000
+    description: The path used by Respondent when port forwarded by kubectl
+
+tags:
+  - name: info
+    description: Informational endpoints.
+
+paths:
+  /info:
+    get:
+      summary: Returns basic information about the service.
+      description: Returns service information.
+      security: []
+      tags:
+        - info
+      responses:
+        '200':
+          description: Basic information about the service was retrieved.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    example: ras-rm-respondent
+                  version:
+                    type: string
+                    example: "1.2.0"
+        '404':
+          description: The basic information about the service couldn't be retrieved. The service may be configured incorrectly.
+  /health:
+    get:
+      summary: Returns information about the health of the service.
+      description: Returns information about response times to various elements of the service e.g. the database.
+      security: []
+      tags:
+        - info
+      responses:
+        '200':
+          description: 
