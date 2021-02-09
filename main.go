@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Unleash/unleash-client-go/v3"
 	"github.com/julienschmidt/httprouter"
 	"github.com/spf13/viper"
 
@@ -72,11 +71,6 @@ func main() {
 	// Config
 	viper.AutomaticEnv()
 	setDefaults()
-
-	// Feature flagging
-	unleash.Initialize(unleash.WithListener(&BasicListener{}),
-		unleash.WithAppName(viper.GetString("service_name")),
-		unleash.WithUrl(viper.GetString("unleash_uri")))
 
 	// Connect to DB
 	var err error
