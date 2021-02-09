@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/ONSdigital/ras-rm-party/models"
-	"github.com/Unleash/unleash-client-go/v3"
 	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
 	"github.com/lib/pq"
@@ -248,11 +247,6 @@ func disableEnrolmentCodes(codes []string) {
 }
 
 func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	if !unleash.IsEnabled("party.api.get.respondents", unleash.WithFallback(false)) {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
 	if db == nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		errorString := models.Error{
@@ -357,10 +351,6 @@ func getRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 }
 
 func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	if !unleash.IsEnabled("party.api.post.respondents", unleash.WithFallback(false)) {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
 
 	if db == nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -597,7 +587,7 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 
 	response := models.Respondents{
 		Data: []models.Respondent{
-			models.Respondent{
+			{
 				Attributes: models.Attributes{
 					ID:           respondentID,
 					EmailAddress: postRequest.Data.Attributes.EmailAddress,
@@ -615,11 +605,6 @@ func postRespondents(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 }
 
 func deleteRespondents(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	if !unleash.IsEnabled("party.api.delete.respondents.id", unleash.WithFallback(false)) {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
 	respondentUUID, err := uuid.Parse(p.ByName("id"))
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -729,11 +714,6 @@ func deleteRespondents(w http.ResponseWriter, r *http.Request, p httprouter.Para
 }
 
 func getRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	if !unleash.IsEnabled("party.api.get.respondents.id", unleash.WithFallback(false)) {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
 	respondentID, err := uuid.Parse(p.ByName("id"))
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -782,11 +762,6 @@ func getRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.Par
 }
 
 func patchRespondentsByID(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	if !unleash.IsEnabled("party.api.patch.respondents.id", unleash.WithFallback(false)) {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
 	respondentUUID, err := uuid.Parse(p.ByName("id"))
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)

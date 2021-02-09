@@ -49,10 +49,10 @@ var patchReq = models.PostRespondents{
 		},
 		Status: "ACTIVE",
 		Associations: []models.Association{
-			models.Association{
+			{
 				ID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
 				Enrolments: []models.Enrolment{
-					models.Enrolment{
+					{
 						SurveyID:        "c43cafd8-ece0-410f-9887-0b0b5eb681fb",
 						EnrolmentStatus: "DISABLED",
 					},
@@ -63,22 +63,9 @@ var patchReq = models.PostRespondents{
 	EnrolmentCodes: []string{"abc1234"}}
 
 // GET /respondents?...
-func TestGetRespondentsIsFeatureFlagged(t *testing.T) {
-	// Assure that it's properly feature flagged away
-	setDefaults()
-	setup()
-	toggleFeature("party.api.get.respondents", false)
-
-	req := httptest.NewRequest("GET", "/v2/respondents", nil)
-	req.SetBasicAuth("admin", "secret")
-	router.ServeHTTP(resp, req)
-
-	assert.Equal(t, http.StatusMethodNotAllowed, resp.Code)
-}
 
 func TestGetRespondents(t *testing.T) {
 	setup()
-	toggleFeature("party.api.get.respondents", true)
 
 	var mock sqlmock.Sqlmock
 	var err error
@@ -120,7 +107,6 @@ func TestGetRespondents(t *testing.T) {
 
 func TestGetRespondentsReturns400WhenNoParamsProvided(t *testing.T) {
 	setup()
-	toggleFeature("party.api.get.respondents", true)
 
 	req := httptest.NewRequest("GET", "/v2/respondents", nil)
 	req.SetBasicAuth("admin", "secret")
@@ -131,7 +117,6 @@ func TestGetRespondentsReturns400WhenNoParamsProvided(t *testing.T) {
 
 func TestGetRespondentsReturns400WhenBadParamProvided(t *testing.T) {
 	setup()
-	toggleFeature("party.api.get.respondents", true)
 
 	req := httptest.NewRequest("GET", "/v2/respondents?nonsense=true", nil)
 	req.SetBasicAuth("admin", "secret")
@@ -150,7 +135,6 @@ func TestGetRespondentsReturns400WhenBadParamProvided(t *testing.T) {
 
 func TestGetRespondentsReturns401WhenNotAuthed(t *testing.T) {
 	setup()
-	toggleFeature("party.api.get.respondents", true)
 
 	req := httptest.NewRequest("GET",
 		"/v2/respondents?firstName=Bob&lastName=Boblaw&emailAddress=bob@boblaw.com&telephone=01234567890&status=ACTIVE"+
@@ -163,7 +147,6 @@ func TestGetRespondentsReturns401WhenNotAuthed(t *testing.T) {
 
 func TestGetRespondentsReturns404WhenNoResults(t *testing.T) {
 	setup()
-	toggleFeature("party.api.get.respondents", true)
 
 	var mock sqlmock.Sqlmock
 	var err error
@@ -191,7 +174,7 @@ func TestGetRespondentsReturns404WhenNoResults(t *testing.T) {
 func TestGetRespondentsReturns500WhenDBNotInit(t *testing.T) {
 	// It shouldn't be possible to start the app without a DB, but just in case
 	setup()
-	toggleFeature("party.api.get.respondents", true)
+
 	db = nil
 
 	req := httptest.NewRequest("GET", "/v2/respondents?firstName=Bob", nil)
@@ -210,7 +193,6 @@ func TestGetRespondentsReturns500WhenDBNotInit(t *testing.T) {
 
 func TestGetRespondentsReturns500WhenDBDown(t *testing.T) {
 	setup()
-	toggleFeature("party.api.get.respondents", true)
 
 	var mock sqlmock.Sqlmock
 	var err error
@@ -237,22 +219,9 @@ func TestGetRespondentsReturns500WhenDBDown(t *testing.T) {
 }
 
 // POST /respondents
-func TestPostRespondentsIsFeatureFlagged(t *testing.T) {
-	// Assure that it's properly feature flagged away
-	setDefaults()
-	setup()
-	toggleFeature("party.api.post.respondents", false)
-
-	req := httptest.NewRequest("POST", "/v2/respondents", nil)
-	req.SetBasicAuth("admin", "secret")
-	router.ServeHTTP(resp, req)
-
-	assert.Equal(t, http.StatusMethodNotAllowed, resp.Code)
-}
 
 func TestPostRespondents(t *testing.T) {
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 	defer gock.Off()
 	var mock sqlmock.Sqlmock
 	var err error
@@ -369,7 +338,6 @@ func TestPostRespondents(t *testing.T) {
 func TestPostRespondentsIfIACDeactivationFails(t *testing.T) {
 	// By not setting up the mock properly, we can effectively test an err in http PUT
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 	defer gock.Off()
 	var mock sqlmock.Sqlmock
 	var err error
@@ -449,7 +417,6 @@ func TestPostRespondentsIfIACDeactivationFails(t *testing.T) {
 
 func TestPostRespondentsIfIACDeactivationDoesntReturn200(t *testing.T) {
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 	defer gock.Off()
 	var mock sqlmock.Sqlmock
 	var err error
@@ -530,7 +497,6 @@ func TestPostRespondentsIfIACDeactivationDoesntReturn200(t *testing.T) {
 
 func TestPostRespondentsReturns400IfBadJSON(t *testing.T) {
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 
 	var err error
 	db, _, err = sqlmock.New()
@@ -554,7 +520,6 @@ func TestPostRespondentsReturns400IfBadJSON(t *testing.T) {
 
 func TestPostRespondentsReturns400IfRequiredFieldsMissing(t *testing.T) {
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 
 	var err error
 	db, _, err = sqlmock.New()
@@ -588,7 +553,6 @@ func TestPostRespondentsReturns400IfRequiredFieldsMissing(t *testing.T) {
 
 func TestPostRespondentsReturns401WhenNotAuthed(t *testing.T) {
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 
 	jsonOut, err := json.Marshal(postReq)
 	if err != nil {
@@ -603,7 +567,6 @@ func TestPostRespondentsReturns401WhenNotAuthed(t *testing.T) {
 
 func TestPostRespondentsReturns404IfEnrolmentCodeNotFound(t *testing.T) {
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 	defer gock.Off()
 	var err error
 
@@ -636,7 +599,6 @@ func TestPostRespondentsReturns404IfEnrolmentCodeNotFound(t *testing.T) {
 
 func TestPostRespondentsReturns404IfCaseNotFound(t *testing.T) {
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 	defer gock.Off()
 	var err error
 
@@ -676,7 +638,6 @@ func TestPostRespondentsReturns404IfCaseNotFound(t *testing.T) {
 
 func TestPostRespondentsReturns404IfCollectionExerciseNotFound(t *testing.T) {
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 	defer gock.Off()
 	var err error
 
@@ -725,7 +686,6 @@ func TestPostRespondentsReturns404IfCollectionExerciseNotFound(t *testing.T) {
 
 func TestPostRespondentsReturns422IfEnrolmentCodeInactive(t *testing.T) {
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 	defer gock.Off()
 	var err error
 
@@ -763,7 +723,6 @@ func TestPostRespondentsReturns422IfEnrolmentCodeInactive(t *testing.T) {
 
 func TestPostRespondentsReturns422IfBusinessNotFoundToAssociate(t *testing.T) {
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 	defer gock.Off()
 	var mock sqlmock.Sqlmock
 	var err error
@@ -818,7 +777,6 @@ func TestPostRespondentsReturns422IfBusinessNotFoundToAssociate(t *testing.T) {
 
 func TestPostRespondentsReturns422IfRespondentCouldntBeInserted(t *testing.T) {
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 	defer gock.Off()
 	var mock sqlmock.Sqlmock
 	var err error
@@ -882,7 +840,6 @@ func TestPostRespondentsReturns422IfRespondentCouldntBeInserted(t *testing.T) {
 
 func TestPostRespondentsReturns422IfBusinessRespondentCouldntBeInserted(t *testing.T) {
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 	defer gock.Off()
 	var mock sqlmock.Sqlmock
 	var err error
@@ -947,7 +904,6 @@ func TestPostRespondentsReturns422IfBusinessRespondentCouldntBeInserted(t *testi
 
 func TestPostRespondentsReturns422IfBusinessRespondentCouldntBeCommitted(t *testing.T) {
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 	defer gock.Off()
 	var mock sqlmock.Sqlmock
 	var err error
@@ -1013,7 +969,6 @@ func TestPostRespondentsReturns422IfBusinessRespondentCouldntBeCommitted(t *test
 
 func TestPostRespondentsReturns422IfPendingEnrolmentCouldntBeInserted(t *testing.T) {
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 	defer gock.Off()
 	var mock sqlmock.Sqlmock
 	var err error
@@ -1084,7 +1039,6 @@ func TestPostRespondentsReturns422IfPendingEnrolmentCouldntBeInserted(t *testing
 
 func TestPostRespondentsReturns422IfPendingEnrolmentCouldntBeCommitted(t *testing.T) {
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 	defer gock.Off()
 	var mock sqlmock.Sqlmock
 	var err error
@@ -1157,7 +1111,6 @@ func TestPostRespondentsReturns422IfPendingEnrolmentCouldntBeCommitted(t *testin
 
 func TestPostRespondentsReturns422IfEnrolmentCouldntBeInserted(t *testing.T) {
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 	defer gock.Off()
 	var mock sqlmock.Sqlmock
 	var err error
@@ -1230,7 +1183,6 @@ func TestPostRespondentsReturns422IfEnrolmentCouldntBeInserted(t *testing.T) {
 
 func TestPostRespondentsReturns422IfEnrolmentCouldntBeCommitted(t *testing.T) {
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 	defer gock.Off()
 	var mock sqlmock.Sqlmock
 	var err error
@@ -1305,7 +1257,6 @@ func TestPostRespondentsReturns422IfEnrolmentCouldntBeCommitted(t *testing.T) {
 func TestPostRespondentsReturns500WhenDBNotInit(t *testing.T) {
 	// It shouldn't be possible to start the app without a DB, but just in case
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 	db = nil
 
 	jsonOut, err := json.Marshal(postReq)
@@ -1329,7 +1280,6 @@ func TestPostRespondentsReturns500WhenDBNotInit(t *testing.T) {
 
 func TestPostRespondentsReturns500WhenDBDown(t *testing.T) {
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 	defer gock.Off()
 	var mock sqlmock.Sqlmock
 	var err error
@@ -1385,7 +1335,6 @@ func TestPostRespondentsReturns500WhenDBDown(t *testing.T) {
 func TestPostRespondentsReturns500IfIACCommunicationsFail(t *testing.T) {
 	// By not setting up the mock properly, we can effectively test an err in http.Get
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 	defer gock.Off()
 	var err error
 
@@ -1417,7 +1366,6 @@ func TestPostRespondentsReturns500IfIACCommunicationsFail(t *testing.T) {
 func TestPostRespondentsReturns500IfCaseCommunicationsFail(t *testing.T) {
 	// By not setting up the mock properly, we can effectively test an err in http.Get
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 	defer gock.Off()
 	var err error
 
@@ -1456,7 +1404,6 @@ func TestPostRespondentsReturns500IfCaseCommunicationsFail(t *testing.T) {
 func TestPostRespondentsReturns500IfCollectionExerciseCommunicationsFail(t *testing.T) {
 	// By not setting up the mock properly, we can effectively test an err in http.Get
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 	defer gock.Off()
 	var err error
 
@@ -1503,7 +1450,6 @@ func TestPostRespondentsReturns500IfCollectionExerciseCommunicationsFail(t *test
 }
 func TestPostRespondentsReturns500IfDBTransactionCouldntBegin(t *testing.T) {
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 	defer gock.Off()
 	var mock sqlmock.Sqlmock
 	var err error
@@ -1564,7 +1510,6 @@ func TestPostRespondentsReturns500IfDBTransactionCouldntBegin(t *testing.T) {
 
 func TestPostRespondentsReturns500IfInsertRespondentPreparedStatementFails(t *testing.T) {
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 	defer gock.Off()
 	var mock sqlmock.Sqlmock
 	var err error
@@ -1626,7 +1571,6 @@ func TestPostRespondentsReturns500IfInsertRespondentPreparedStatementFails(t *te
 
 func TestPostRespondentsReturns500IfInsertBusinessRespondentPreparedStatementFails(t *testing.T) {
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 	defer gock.Off()
 	var mock sqlmock.Sqlmock
 	var err error
@@ -1690,7 +1634,6 @@ func TestPostRespondentsReturns500IfInsertBusinessRespondentPreparedStatementFai
 
 func TestPostRespondentsReturns500IfInsertPendingEnrolmentPreparedStatementFails(t *testing.T) {
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 	defer gock.Off()
 	var mock sqlmock.Sqlmock
 	var err error
@@ -1756,7 +1699,6 @@ func TestPostRespondentsReturns500IfInsertPendingEnrolmentPreparedStatementFails
 
 func TestPostRespondentsReturns500IfInsertEnrolmentPreparedStatementFails(t *testing.T) {
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 	defer gock.Off()
 	var mock sqlmock.Sqlmock
 	var err error
@@ -1823,7 +1765,6 @@ func TestPostRespondentsReturns500IfInsertEnrolmentPreparedStatementFails(t *tes
 
 func TestPostRespondentsReturns500IfCommitFails(t *testing.T) {
 	setup()
-	toggleFeature("party.api.post.respondents", true)
 	defer gock.Off()
 	var mock sqlmock.Sqlmock
 	var err error
@@ -1897,22 +1838,9 @@ func TestPostRespondentsReturns500IfCommitFails(t *testing.T) {
 }
 
 // DELETE /respondents/{id}
-func TestDeleteRespondentsByIDIsFeatureFlagged(t *testing.T) {
-	// Assure that it's properly feature flagged away
-	setDefaults()
-	setup()
-	toggleFeature("party.api.delete.respondents.id", false)
-
-	req := httptest.NewRequest("DELETE", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
-	req.SetBasicAuth("admin", "secret")
-	router.ServeHTTP(resp, req)
-
-	assert.Equal(t, http.StatusMethodNotAllowed, resp.Code)
-}
 
 func TestDeleteRespondentsByID(t *testing.T) {
 	setup()
-	toggleFeature("party.api.delete.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 	db, mock, err = sqlmock.New()
@@ -1940,7 +1868,6 @@ func TestDeleteRespondentsByID(t *testing.T) {
 
 func TestDeleteRespondentsByIDReturns400IfPassedANonUUID(t *testing.T) {
 	setup()
-	toggleFeature("party.api.delete.respondents.id", true)
 
 	req := httptest.NewRequest("DELETE", "/v2/respondents/abc123", nil)
 	req.SetBasicAuth("admin", "secret")
@@ -1958,7 +1885,6 @@ func TestDeleteRespondentsByIDReturns400IfPassedANonUUID(t *testing.T) {
 
 func TestDeleteRespondentsByIDReturns401WhenNotAuthed(t *testing.T) {
 	setup()
-	toggleFeature("party.api.delete.respondents.id", true)
 
 	req := httptest.NewRequest("DELETE", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
 	router.ServeHTTP(resp, req)
@@ -1968,7 +1894,6 @@ func TestDeleteRespondentsByIDReturns401WhenNotAuthed(t *testing.T) {
 
 func TestDeleteRespondentsByIDReturns404WhenRespondentNotFound(t *testing.T) {
 	setup()
-	toggleFeature("party.api.delete.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 	db, mock, err = sqlmock.New()
@@ -1995,7 +1920,6 @@ func TestDeleteRespondentsByIDReturns404WhenRespondentNotFound(t *testing.T) {
 func TestDeleteRespondentsByIDReturns500WhenDBNotInit(t *testing.T) {
 	// It shouldn't be possible to start the app without a DB, but just in case
 	setup()
-	toggleFeature("party.api.delete.respondents.id", true)
 	db = nil
 
 	req := httptest.NewRequest("DELETE", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
@@ -2014,7 +1938,6 @@ func TestDeleteRespondentsByIDReturns500WhenDBNotInit(t *testing.T) {
 
 func TestDeleteRespondentsByIDReturns500WhenDBDown(t *testing.T) {
 	setup()
-	toggleFeature("party.api.delete.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 	db, mock, err = sqlmock.New()
@@ -2040,7 +1963,6 @@ func TestDeleteRespondentsByIDReturns500WhenDBDown(t *testing.T) {
 
 func TestDeleteRespondentsByIDReturns500IfDBTransactionCouldntBegin(t *testing.T) {
 	setup()
-	toggleFeature("party.api.delete.respondents.id", true)
 	defer gock.Off()
 	var err error
 	var mock sqlmock.Sqlmock
@@ -2070,7 +1992,6 @@ func TestDeleteRespondentsByIDReturns500IfDBTransactionCouldntBegin(t *testing.T
 
 func TestDeleteRespondentsByIDReturns500IfDeletingEnrolmentsFails(t *testing.T) {
 	setup()
-	toggleFeature("party.api.delete.respondents.id", true)
 	defer gock.Off()
 	var err error
 	var mock sqlmock.Sqlmock
@@ -2103,7 +2024,6 @@ func TestDeleteRespondentsByIDReturns500IfDeletingEnrolmentsFails(t *testing.T) 
 
 func TestDeleteRespondentsByIDReturns500IfDeletingBusinessRespondentFails(t *testing.T) {
 	setup()
-	toggleFeature("party.api.delete.respondents.id", true)
 	defer gock.Off()
 	var err error
 	var mock sqlmock.Sqlmock
@@ -2137,7 +2057,6 @@ func TestDeleteRespondentsByIDReturns500IfDeletingBusinessRespondentFails(t *tes
 
 func TestDeleteRespondentsByIDReturns500IfDeletingPendingEnrolmentsFails(t *testing.T) {
 	setup()
-	toggleFeature("party.api.delete.respondents.id", true)
 	defer gock.Off()
 	var err error
 	var mock sqlmock.Sqlmock
@@ -2172,7 +2091,6 @@ func TestDeleteRespondentsByIDReturns500IfDeletingPendingEnrolmentsFails(t *test
 
 func TestDeleteRespondentsByIDReturns500IfDeletingRespondentFails(t *testing.T) {
 	setup()
-	toggleFeature("party.api.delete.respondents.id", true)
 	defer gock.Off()
 	var err error
 	var mock sqlmock.Sqlmock
@@ -2208,7 +2126,6 @@ func TestDeleteRespondentsByIDReturns500IfDeletingRespondentFails(t *testing.T) 
 
 func TestDeleteRespondentsByIDReturns500IfTransactionCommitFails(t *testing.T) {
 	setup()
-	toggleFeature("party.api.delete.respondents.id", true)
 	defer gock.Off()
 	var err error
 	var mock sqlmock.Sqlmock
@@ -2244,23 +2161,10 @@ func TestDeleteRespondentsByIDReturns500IfTransactionCommitFails(t *testing.T) {
 }
 
 // GET /respondents/id
-func TestGetRespondentsByIDIsFeatureFlagged(t *testing.T) {
-	// Assure that it's properly feature flagged away
-	setDefaults()
-	setup()
-	toggleFeature("party.api.get.respondents.id", false)
-
-	req := httptest.NewRequest("GET", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
-	req.SetBasicAuth("admin", "secret")
-	router.ServeHTTP(resp, req)
-
-	assert.Equal(t, http.StatusMethodNotAllowed, resp.Code)
-}
 
 func TestGetRespondentsByID(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.get.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 	db, mock, err = sqlmock.New()
@@ -2298,7 +2202,6 @@ func TestGetRespondentsByID(t *testing.T) {
 func TestGetRespondentsByIDReturns400IfPassedANonUUID(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.get.respondents.id", true)
 
 	req := httptest.NewRequest("GET", "/v2/respondents/abc123", nil)
 	req.SetBasicAuth("admin", "secret")
@@ -2317,7 +2220,6 @@ func TestGetRespondentsByIDReturns400IfPassedANonUUID(t *testing.T) {
 func TestGetRespondentsByIDReturns401WhenNotAuthed(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.get.respondents.id", true)
 
 	req := httptest.NewRequest("GET", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
 	router.ServeHTTP(resp, req)
@@ -2328,7 +2230,6 @@ func TestGetRespondentsByIDReturns401WhenNotAuthed(t *testing.T) {
 func TestGetRespondentsByIDReturns404WhenNoResults(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.get.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 	db, mock, err = sqlmock.New()
@@ -2355,7 +2256,6 @@ func TestGetRespondentsByIDReturns404WhenNoResults(t *testing.T) {
 func TestGetRespondentsByIDReturns500WhenDBNotInit(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.get.respondents.id", true)
 
 	db = nil
 
@@ -2375,7 +2275,6 @@ func TestGetRespondentsByIDReturns500WhenDBNotInit(t *testing.T) {
 
 func TestGetRespondentsByIDReturns500WhenDBDown(t *testing.T) {
 	setup()
-	toggleFeature("party.api.get.respondents.id", true)
 
 	var mock sqlmock.Sqlmock
 	var err error
@@ -2402,23 +2301,10 @@ func TestGetRespondentsByIDReturns500WhenDBDown(t *testing.T) {
 }
 
 // PATCH /respondents/id
-func TestPatchRespondentsByIDIsFeatureFlagged(t *testing.T) {
-	// Assure that it's properly feature flagged away
-	setDefaults()
-	setup()
-	toggleFeature("party.api.patch.respondents.id", false)
-
-	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
-	req.SetBasicAuth("admin", "secret")
-	router.ServeHTTP(resp, req)
-
-	assert.Equal(t, http.StatusMethodNotAllowed, resp.Code)
-}
 
 func TestPatchRespondentsByID(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
@@ -2437,10 +2323,10 @@ func TestPatchRespondentsByID(t *testing.T) {
 			},
 			Status: "ACTIVE",
 			Associations: []models.Association{
-				models.Association{
+				{
 					ID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
 					Enrolments: []models.Enrolment{
-						models.Enrolment{
+						{
 							SurveyID:        "c43cafd8-ece0-410f-9887-0b0b5eb681fb",
 							EnrolmentStatus: "DISABLED",
 						},
@@ -2558,7 +2444,6 @@ func TestPatchRespondentsByIDIfIACDeactivationFails(t *testing.T) {
 	// By not setting up the mock properly, we can effectively test an err in http PUT
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
@@ -2577,10 +2462,10 @@ func TestPatchRespondentsByIDIfIACDeactivationFails(t *testing.T) {
 			},
 			Status: "ACTIVE",
 			Associations: []models.Association{
-				models.Association{
+				{
 					ID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
 					Enrolments: []models.Enrolment{
-						models.Enrolment{
+						{
 							SurveyID:        "c43cafd8-ece0-410f-9887-0b0b5eb681fb",
 							EnrolmentStatus: "DISABLED",
 						},
@@ -2699,7 +2584,6 @@ func TestPatchRespondentsByIDIfIACDeactivationFails(t *testing.T) {
 func TestPatchRespondentsByIDIfIACDeactivationDoesntReturn200(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
@@ -2718,10 +2602,10 @@ func TestPatchRespondentsByIDIfIACDeactivationDoesntReturn200(t *testing.T) {
 			},
 			Status: "ACTIVE",
 			Associations: []models.Association{
-				models.Association{
+				{
 					ID: "ba02fad7-ae27-45c6-ab0f-c8cd9a48ebc2",
 					Enrolments: []models.Enrolment{
-						models.Enrolment{
+						{
 							SurveyID:        "c43cafd8-ece0-410f-9887-0b0b5eb681fb",
 							EnrolmentStatus: "DISABLED",
 						},
@@ -2843,7 +2727,6 @@ func TestPatchRespondentsByIDIfIACDeactivationDoesntReturn200(t *testing.T) {
 func TestPatchRespondentsByIDReturns400IfPassedANonUUID(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 
 	req := httptest.NewRequest("PATCH", "/v2/respondents/abc123", nil)
 	req.SetBasicAuth("admin", "secret")
@@ -2862,7 +2745,6 @@ func TestPatchRespondentsByIDReturns400IfPassedANonUUID(t *testing.T) {
 func TestPatchRespondentsByIDReturns400IfBadJSON(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 
 	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", strings.NewReader("{nonsense: true}"))
 	req.SetBasicAuth("admin", "secret")
@@ -2881,7 +2763,6 @@ func TestPatchRespondentsByIDReturns400IfBadJSON(t *testing.T) {
 func TestPatchRespondentsByIDReturns400IfIDChanged(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 
 	idChangePatchReq := models.PostRespondents{
 		Data: models.Respondent{
@@ -2918,7 +2799,6 @@ func TestPatchRespondentsByIDReturns400IfIDChanged(t *testing.T) {
 func TestPatchRespondentsByIDReturns400IfBadRespondentStatus(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
@@ -2970,7 +2850,6 @@ func TestPatchRespondentsByIDReturns400IfBadRespondentStatus(t *testing.T) {
 func TestPatchRespondentsByIDReturns401WhenNotAuthed(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 
 	req := httptest.NewRequest("PATCH", "/v2/respondents/be70e086-7bbc-461c-a565-5b454d748a71", nil)
 	router.ServeHTTP(resp, req)
@@ -2981,7 +2860,6 @@ func TestPatchRespondentsByIDReturns401WhenNotAuthed(t *testing.T) {
 func TestPatchRespondentsByIDReturns404IfRespondentNotFound(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
@@ -3015,7 +2893,6 @@ func TestPatchRespondentsByIDReturns404IfRespondentNotFound(t *testing.T) {
 
 func TestPatchRespondentsByIDReturns404IfEnrolmentCodeNotFound(t *testing.T) {
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	defer gock.Off()
 
 	var err error
@@ -3060,7 +2937,6 @@ func TestPatchRespondentsByIDReturns404IfEnrolmentCodeNotFound(t *testing.T) {
 
 func TestPatchRespondentsByIDReturns404IfCaseNotFound(t *testing.T) {
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	defer gock.Off()
 
 	var err error
@@ -3112,7 +2988,6 @@ func TestPatchRespondentsByIDReturns404IfCaseNotFound(t *testing.T) {
 
 func TestPatchRespondentsByIDReturns404IfCollectionExerciseNotFound(t *testing.T) {
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	defer gock.Off()
 
 	var err error
@@ -3174,7 +3049,6 @@ func TestPatchRespondentsByIDReturns404IfCollectionExerciseNotFound(t *testing.T
 func TestPatchRespondentsByIDReturns404IfEnrolmentCouldntBeFoundFromJSON(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
@@ -3257,7 +3131,6 @@ func TestPatchRespondentsByIDReturns404IfEnrolmentCouldntBeFoundFromJSON(t *test
 func TestPatchRespondentsByIDReturns409IfEmailNotUnique(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
@@ -3296,7 +3169,6 @@ func TestPatchRespondentsByIDReturns409IfEmailNotUnique(t *testing.T) {
 func TestPatchRespondentsByIDReturns422IfUpdateRespondentPreparedStatementFails(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
@@ -3336,7 +3208,6 @@ func TestPatchRespondentsByIDReturns422IfUpdateRespondentPreparedStatementFails(
 
 func TestPatchRespondentsByIDReturns422IfEnrolmentCodeInactive(t *testing.T) {
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	defer gock.Off()
 
 	var err error
@@ -3387,7 +3258,6 @@ func TestPatchRespondentsByIDReturns422IfEnrolmentCodeInactive(t *testing.T) {
 func TestPatchRespondentsByIDReturns422IfBusinessNotFoundToAssociate(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
@@ -3456,7 +3326,6 @@ func TestPatchRespondentsByIDReturns422IfBusinessNotFoundToAssociate(t *testing.
 func TestPatchRespondentsByIDReturns422IfBusinessRespondentCouldntBeInserted(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
@@ -3528,7 +3397,6 @@ func TestPatchRespondentsByIDReturns422IfBusinessRespondentCouldntBeInserted(t *
 func TestPatchRespondentsByIDReturns422IfBusinessRespondentCouldntBeCommitted(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
@@ -3601,7 +3469,6 @@ func TestPatchRespondentsByIDReturns422IfBusinessRespondentCouldntBeCommitted(t 
 func TestPatchRespondentsByIDReturns422IfEnrolmentCouldntBeInsertedForIAC(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
@@ -3678,7 +3545,6 @@ func TestPatchRespondentsByIDReturns422IfEnrolmentCouldntBeInsertedForIAC(t *tes
 func TestPatchRespondentsByIDReturns422IfPendingEnrolmentCouldntBeInserted(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
@@ -3757,7 +3623,6 @@ func TestPatchRespondentsByIDReturns422IfPendingEnrolmentCouldntBeInserted(t *te
 func TestPatchRespondentsByIDReturns422IfEnrolmentCouldntBeCommitted(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
@@ -3837,7 +3702,6 @@ func TestPatchRespondentsByIDReturns422IfEnrolmentCouldntBeCommitted(t *testing.
 func TestPatchRespondentsByIDReturns422IfPendingEnrolmentCouldntBeCommitted(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
@@ -3918,7 +3782,6 @@ func TestPatchRespondentsByIDReturns422IfPendingEnrolmentCouldntBeCommitted(t *t
 func TestPatchRespondentsByIDReturns422IfEnrolmentCouldntBeUpdatedFromJSON(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
@@ -4002,7 +3865,6 @@ func TestPatchRespondentsByIDReturns422IfEnrolmentCouldntBeUpdatedFromJSON(t *te
 func TestPatchRespondentsByIDReturns500WhenDBNotInit(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 
 	db = nil
 
@@ -4028,7 +3890,6 @@ func TestPatchRespondentsByIDReturns500WhenDBNotInit(t *testing.T) {
 func TestPatchRespondentsByIDReturns500IfDBTransactionCouldntBegin(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
@@ -4062,7 +3923,6 @@ func TestPatchRespondentsByIDReturns500IfDBTransactionCouldntBegin(t *testing.T)
 func TestPatchRespondentsByIDReturns500IfRetrievingRespondentFails(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
@@ -4097,7 +3957,6 @@ func TestPatchRespondentsByIDReturns500IfRetrievingRespondentFails(t *testing.T)
 func TestPatchRespondentsByIDReturns500IfCheckingEmailUniquenessFails(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
@@ -4136,7 +3995,6 @@ func TestPatchRespondentsByIDReturns500IfCheckingEmailUniquenessFails(t *testing
 func TestPatchRespondentsByIDReturns500IfIACCommunicationsFail(t *testing.T) {
 	// By not setting up the mock properly, we can effectively test an err in http.Get
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	defer gock.Off()
 
 	var err error
@@ -4181,7 +4039,6 @@ func TestPatchRespondentsByIDReturns500IfIACCommunicationsFail(t *testing.T) {
 func TestPatchRespondentsByIDReturns500IfCaseCommunicationsFail(t *testing.T) {
 	// By not setting up the mock properly, we can effectively test an err in http.Get
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	defer gock.Off()
 
 	var err error
@@ -4233,7 +4090,6 @@ func TestPatchRespondentsByIDReturns500IfCaseCommunicationsFail(t *testing.T) {
 func TestPatchRespondentsByIDReturns500IfCollectionExerciseCommunicationsFail(t *testing.T) {
 	// By not setting up the mock properly, we can effectively test an err in http.Get
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	defer gock.Off()
 
 	var err error
@@ -4294,7 +4150,6 @@ func TestPatchRespondentsByIDReturns500IfCollectionExerciseCommunicationsFail(t 
 func TestPatchRespondentsByIDReturns500IfRetrievingBusinessRespondentsFails(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
@@ -4358,7 +4213,6 @@ func TestPatchRespondentsByIDReturns500IfRetrievingBusinessRespondentsFails(t *t
 func TestPatchRespondentsByIDReturns500IfRetrievingBusinessesFails(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
@@ -4425,7 +4279,6 @@ func TestPatchRespondentsByIDReturns500IfRetrievingBusinessesFails(t *testing.T)
 func TestPatchRespondentsByIDReturns500IfInsertBusinessRespondentPreparedStatementFails(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
@@ -4497,7 +4350,6 @@ func TestPatchRespondentsByIDReturns500IfInsertBusinessRespondentPreparedStateme
 func TestPatchRespondentsByIDReturns500IfInsertEnrolmentFromIACPreparedStatementFails(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
@@ -4571,7 +4423,6 @@ func TestPatchRespondentsByIDReturns500IfInsertEnrolmentFromIACPreparedStatement
 func TestPatchRespondentsByIDReturns500IfInsertPendingEnrolmentPreparedStatementFails(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
@@ -4646,7 +4497,6 @@ func TestPatchRespondentsByIDReturns500IfInsertPendingEnrolmentPreparedStatement
 func TestPatchRespondentsByIDReturns500IfInsertEnrolmentFromJSONPreparedStatementFails(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
@@ -4728,7 +4578,6 @@ func TestPatchRespondentsByIDReturns500IfInsertEnrolmentFromJSONPreparedStatemen
 func TestPatchRespondentsByIDReturns500IfCommitFails(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
@@ -4812,7 +4661,6 @@ func TestPatchRespondentsByIDReturns500IfCommitFails(t *testing.T) {
 func TestPatchRespondentsByIDReturns500IfGetNewRespondentStateFails(t *testing.T) {
 	setDefaults()
 	setup()
-	toggleFeature("party.api.patch.respondents.id", true)
 	var err error
 	var mock sqlmock.Sqlmock
 
